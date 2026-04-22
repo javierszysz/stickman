@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#87ceeb" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>Stickman Duet</title>
+  <style>
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      background: #87ceeb;
+      font-family: system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+      overscroll-behavior: none;
+      touch-action: none;
+      -webkit-user-select: none; user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #game { position: fixed; inset: 0; display: block; }
+
+    .screen {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 24px;
+      background: linear-gradient(#87ceeb, #b8e0ff);
+      z-index: 10;
+    }
+    .screen.hidden { display: none; }
+
+    .big-btn {
+      font-size: 48px; font-weight: 800;
+      padding: 28px 56px;
+      border-radius: 24px;
+      border: 6px solid #222;
+      background: #ffd54a;
+      color: #222;
+      box-shadow: 0 8px 0 #222;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    .big-btn:active { transform: translateY(4px); box-shadow: 0 4px 0 #222; }
+
+    .color-row { display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; }
+    .color-btn {
+      width: 160px; height: 200px;
+      border-radius: 24px;
+      border: 6px solid #222;
+      background: #fff;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 8px 0 #222;
+    }
+    .color-btn:active { transform: translateY(4px); box-shadow: 0 4px 0 #222; }
+    .color-btn.pink { background: #ffc0e0; }
+    .color-btn.blue { background: #a8d8ff; }
+    .color-btn.green { background: #b8f0b8; }
+    .color-btn.yellow { background: #ffe88a; }
+    .color-btn canvas { width: 120px; height: 160px; }
+
+    .title {
+      font-size: 56px; font-weight: 900; color: #222;
+      text-shadow: 4px 4px 0 #fff;
+      margin: 0;
+    }
+    .sub { font-size: 22px; color: #222; opacity: 0.85; }
+
+    .loader-stick { width: 160px; height: 200px; }
+
+    .rotate-overlay {
+      position: fixed; inset: 0; z-index: 20;
+      background: rgba(0,0,0,0.85);
+      display: none;
+      color: #fff;
+      align-items: center; justify-content: center;
+      flex-direction: column; gap: 16px;
+      font-size: 28px; font-weight: 700;
+      text-align: center; padding: 24px;
+    }
+    .rotate-overlay.visible { display: flex; }
+    .rotate-icon { font-size: 96px; animation: rotateHint 1.6s infinite ease-in-out; }
+    @keyframes rotateHint {
+      0%, 100% { transform: rotate(0deg); }
+      50% { transform: rotate(-90deg); }
+    }
+
+    .gear {
+      position: fixed; top: 12px; right: 12px; z-index: 5;
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      border: 4px solid #222;
+      background: #fff;
+      font-size: 28px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      opacity: 0.7;
+    }
+    .gear.hidden { display: none; }
+
+    .status {
+      position: fixed; top: 12px; left: 12px; z-index: 5;
+      font-size: 14px; color: #222; opacity: 0.7;
+      background: rgba(255,255,255,0.6);
+      padding: 4px 8px; border-radius: 8px;
+    }
+    .status.hidden { display: none; }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="screen-landing" class="screen">
+    <h1 class="title">Stickman Duet</h1>
+    <div class="sub">A game for Lara</div>
+    <button class="big-btn" id="btn-play">Play!</button>
+  </div>
+
+  <div id="screen-color" class="screen hidden">
+    <div class="sub">Pick your stickman</div>
+    <div class="color-row" id="color-row"></div>
+  </div>
+
+  <div id="screen-waiting" class="screen hidden">
+    <canvas class="loader-stick" id="loader-canvas" width="160" height="200"></canvas>
+    <div class="sub">Looking for a friend...</div>
+  </div>
+
+  <div id="gear" class="gear hidden" title="Calibrate">&#9881;</div>
+  <div id="status" class="status hidden"></div>
+
+  <div id="rotate-overlay" class="rotate-overlay">
+    <div class="rotate-icon">&#128241;</div>
+    <div>Please rotate your device</div>
+    <div class="sub" style="color:#fff">Sideways works best!</div>
+  </div>
+
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
