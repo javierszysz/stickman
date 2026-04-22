@@ -229,15 +229,15 @@ function drawBackground(w, h) {
 function drawCloud(ctx, x, y, size) {
   ctx.save();
   ctx.fillStyle = '#ffffff';
-  ctx.strokeStyle = '#d0e4f0';
-  ctx.lineWidth = 2;
+  ctx.shadowColor = 'rgba(120, 160, 200, 0.35)';
+  ctx.shadowBlur = 6;
+  ctx.shadowOffsetY = 2;
   ctx.beginPath();
   ctx.arc(x, y, size * 0.5, 0, Math.PI * 2);
   ctx.arc(x + size * 0.45, y - size * 0.15, size * 0.4, 0, Math.PI * 2);
   ctx.arc(x + size * 0.85, y, size * 0.5, 0, Math.PI * 2);
   ctx.arc(x + size * 0.4, y + size * 0.1, size * 0.45, 0, Math.PI * 2);
   ctx.fill();
-  ctx.stroke();
   ctx.restore();
 }
 
