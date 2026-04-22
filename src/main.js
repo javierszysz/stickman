@@ -14,7 +14,7 @@ async function onPlay() {
   await initInput();
   await lockLandscape();
 
-  const saved = localStorage.getItem('stickman.color');
+  const saved = localStorage.getItem('stickman.color.v2');
   if (saved && ['pink', 'blue', 'green', 'yellow'].includes(saved)) {
     onPickColor(saved);
   } else {
@@ -27,7 +27,7 @@ function onPickColor(color) {
   // Default to 'A' for solo mode so getLocalStickman works.
   if (!world.phoneId) setPhoneIdentity(world, 'host');
   getLocalStickman(world).color = color;
-  localStorage.setItem('stickman.color', color);
+  localStorage.setItem('stickman.color.v2', color);
   showScreen('waiting');
 
   if (!started) {

@@ -140,8 +140,10 @@ function render() {
 function drawEdgeGlow(w, h, side) {
   const t = performance.now() * 0.004;
   const pulse = 0.5 + 0.5 * Math.sin(t);
-  const alpha = 0.25 + 0.3 * pulse;
-  const portalW = Math.min(140, w * 0.15);
+  const alpha = 0.3 + 0.3 * pulse;
+  const portalW = Math.min(240, w * 0.25);
+  const arrowSize = Math.min(70, Math.max(48, h * 0.09));
+  const arrowX = side === 'right' ? w - portalW * 0.35 : portalW * 0.35;
   ctx.save();
   if (side === 'right') {
     const g = ctx.createLinearGradient(w, 0, w - portalW, 0);
@@ -149,21 +151,21 @@ function drawEdgeGlow(w, h, side) {
     g.addColorStop(1, `rgba(255, 230, 120, 0)`);
     ctx.fillStyle = g;
     ctx.fillRect(w - portalW, 0, portalW, h);
-    ctx.fillStyle = `rgba(255, 235, 140, ${0.6 + 0.3 * pulse})`;
-    ctx.strokeStyle = '#a88800';
-    ctx.lineWidth = 3;
-    drawArrow(ctx, w - 40, h / 2, 1, 36);
   } else {
     const g = ctx.createLinearGradient(0, 0, portalW, 0);
     g.addColorStop(0, `rgba(255, 230, 120, ${alpha})`);
     g.addColorStop(1, `rgba(255, 230, 120, 0)`);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, portalW, h);
-    ctx.fillStyle = `rgba(255, 235, 140, ${0.6 + 0.3 * pulse})`;
-    ctx.strokeStyle = '#a88800';
-    ctx.lineWidth = 3;
-    drawArrow(ctx, 40, h / 2, -1, 36);
   }
+  // Arrows: draw 3 stacked for extra pizzazz
+  ctx.fillStyle = `rgba(255, 235, 140, ${0.7 + 0.25 * pulse})`;
+  ctx.strokeStyle = '#a88800';
+  ctx.lineWidth = 4;
+  const dir = side === 'right' ? 1 : -1;
+  drawArrow(ctx, arrowX, h * 0.35, dir, arrowSize);
+  drawArrow(ctx, arrowX, h * 0.55, dir, arrowSize);
+  drawArrow(ctx, arrowX, h * 0.75, dir, arrowSize);
   ctx.restore();
 }
 

@@ -39,12 +39,14 @@ export function drawStickman(ctx, s) {
   const t = s.poseT;
   const walking = s.state === 'walking';
   const dancing = s.state === 'dancing';
+  const celebrating = s.state === 'celebrating';
   const walkFreq = 9;
   const walkPhase = walking ? Math.sin(t * walkFreq) : 0;
   const walkBob = walking ? (1 - Math.abs(Math.cos(t * walkFreq))) * h * 0.02 : 0;
   const dancePhase = dancing ? Math.sin(t * 6) : 0;
   const danceBob = dancing ? Math.abs(Math.sin(t * 6)) * h * 0.04 : 0;
-  const bob = -(walkBob + danceBob);
+  const celebrateBob = celebrating ? Math.abs(Math.sin(t * 8)) * h * 0.05 : 0;
+  const bob = -(walkBob + danceBob + celebrateBob);
 
   // ---- Per-state limb swings ----
   // Convention:
@@ -91,6 +93,15 @@ export function drawStickman(ctx, s) {
       backArm  = { swing: Math.PI * 0.48, bend: 0.55 };
       frontLeg = { swing: 0, bend: 0 };
       backLeg  = { swing: 0, bend: 0 };
+      break;
+    }
+    case 'celebrating': {
+      // Both arms raised high, wiggling happily, with a little bounce.
+      const w = Math.sin(t * 14);
+      frontArm = { swing: Math.PI * 0.92 + w * 0.18, bend: -0.25 + w * 0.1 };
+      backArm  = { swing: Math.PI * 1.08 - w * 0.18, bend: -0.25 - w * 0.1 };
+      frontLeg = { swing: 0.02, bend: 0 };
+      backLeg  = { swing: -0.02, bend: 0 };
       break;
     }
     case 'dancing': {
@@ -303,7 +314,7 @@ function drawHead(ctx, cx, cy, r, hairColor, facing, state, t) {
   ctx.lineWidth = Math.max(2, r * 0.12);
   const mouthY = cy + r * 0.38;
   const mouthW = r * 0.5;
-  const isOpen = state === 'dancing' || state === 'waving' || state === 'high-five';
+  const isOpen = state === 'dancing' || state === 'waving' || state === 'high-five' || state === 'celebrating';
   if (isOpen) {
     ctx.beginPath();
     ctx.ellipse(cx + r * 0.1 * facing, mouthY, mouthW * 0.6, r * 0.2, 0, 0, Math.PI * 2);
