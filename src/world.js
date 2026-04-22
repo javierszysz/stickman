@@ -64,19 +64,19 @@ export function updateLocalMotion(world, tilt, dt) {
   else if (tilt > 0.05) me.facing = 1;
 
   if (world.peerConnected) {
-    if (me.x > 1 && tilt > 0) {
-      me.x = 0.02;
+    if (me.x >= 0.97 && tilt > 0) {
+      me.x = 0.03;
       me.phone = otherPhone(me.phone);
       me.facing = 1;
       return;
     }
-    if (me.x < 0 && tilt < 0) {
-      me.x = 0.98;
+    if (me.x <= 0.03 && tilt < 0) {
+      me.x = 0.97;
       me.phone = otherPhone(me.phone);
       me.facing = -1;
       return;
     }
   }
 
-  me.x = Math.max(0.03, Math.min(0.97, me.x));
+  me.x = Math.max(0.02, Math.min(0.98, me.x));
 }

@@ -34,17 +34,25 @@ export async function initInput() {
   window.addEventListener('deviceorientation', onOrientation);
   window.addEventListener('devicemotion', onMotion);
 
-  // Touch controls always on (tablet gyro may be locked down in Kids mode)
+  // Touch controls always on (tablet gyro may be locked down in Kids mode).
+  // Start listeners on canvas (so UI overlays get their clicks first); end
+  // listeners on window (so they always fire even if finger lifts off-canvas).
   const canvas = document.getElementById('game');
-  const target = canvas || window;
-  target.addEventListener('touchstart', onTouchStart, { passive: false });
-  target.addEventListener('touchmove', onTouchMove, { passive: false });
-  target.addEventListener('touchend', onTouchEnd, { passive: false });
-  target.addEventListener('touchcancel', onTouchEnd, { passive: false });
+  const startTarget = canvas || window;
+  startTarget.addEventListener('touchstart', onTouchStart, { passive: false });
+  startTarget.addEventListener('touchmove', onTouchMove, { passive: false });
+  window.addEventListener('touchend', onTouchEnd, { passive: false });
+  window.addEventListener('touchcancel', onTouchEnd, { passive: false });
   // Mouse fallback (desktop testing)
-  target.addEventListener('mousedown', onMouseDown);
+  startTarget.addEventListener('mousedown', onMouseDown);
   window.addEventListener('mousemove', onMouseMove);
   window.addEventListener('mouseup', onMouseUp);
+  // Safety nets: if the tab loses focus or the user switches apps, clear held
+  // inputs so the stickman doesn't walk on its own when they come back.
+  window.addEventListener('blur', resetHeld);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) resetHeld();
+  });
 
   if (DEBUG) {
     window.addEventListener('keydown', onKeyDown);
@@ -111,21 +119,37 @@ function onTouchMove(e) {
 }
 
 function onTouchEnd(e) {
+  // If no touches remain on the screen at all, hard-reset the held state.
+  // This catches cases where the browser drops the specific touchend for our
+  // active touch (common at screen edges on some devices).
+  if (e.touches.length === 0) {
+    const held = performance.now() - state.touchPressedAt;
+    const wasTilt = state.touchTilt !== 0;
+    const wasActive = state.activeTouchId != null;
+    state.touchTilt = 0;
+    state.activeTouchId = null;
+    if (wasActive && !state.touchMoved && held < 300 && !wasTilt) {
+      const now = performance.now();
+      if (now - state.lastShakeTs > MOTION.shakeCooldownMs) {
+        state.lastShakeTs = now;
+        state.shakeListeners.forEach(fn => fn('soft'));
+      }
+    }
+    return;
+  }
+  // Otherwise, only react if OUR specific active touch ended.
   if (state.activeTouchId == null) return;
   const t = findTouch(e.changedTouches, state.activeTouchId);
-  if (!t && e.touches.length > 0) return; // a different finger lifted
-  const held = performance.now() - state.touchPressedAt;
-  const wasTilt = state.touchTilt !== 0;
+  if (!t) return;
   state.touchTilt = 0;
   state.activeTouchId = null;
-  // Short tap with no tilt (middle zone) -> shake
-  if (!state.touchMoved && held < 300 && !wasTilt) {
-    const now = performance.now();
-    if (now - state.lastShakeTs > MOTION.shakeCooldownMs) {
-      state.lastShakeTs = now;
-      state.shakeListeners.forEach(fn => fn('soft'));
-    }
-  }
+}
+
+function resetHeld() {
+  state.touchTilt = 0;
+  state.activeTouchId = null;
+  state.keyboardTilt = 0;
+  mouseDown = false;
 }
 
 function findTouch(list, id) {
