@@ -22,8 +22,18 @@ export function drawStickman(ctx, s) {
   const headCY = neckY - headR;
   const cx = s.x;
 
-  const armLen = h * 0.33;
-  const legLen = h * 0.44;
+  const armLen = h * 0.30;
+  const legLen = h * 0.42;
+
+  // Shoulder + hip attachment points (so limbs don't all emit from center)
+  const shirtTopW = h * 0.26;
+  const shirtBotW = h * 0.18;
+  const shoulderInset = h * 0.018;
+  const hipInset = h * 0.015;
+  const shoulderL = cx - shirtTopW / 2 + shoulderInset;
+  const shoulderR = cx + shirtTopW / 2 - shoulderInset;
+  const hipL = cx - shirtBotW / 2 + hipInset;
+  const hipR = cx + shirtBotW / 2 - hipInset;
 
   // ---- Animation phases ----
   const t = s.poseT;
@@ -47,57 +57,56 @@ export function drawStickman(ctx, s) {
   switch (s.state) {
     case 'walking': {
       const p = walkPhase;
-      frontLeg = { swing:  p * 0.55, bend: Math.max(0, -p) * 0.55 };
-      backLeg  = { swing: -p * 0.55, bend: Math.max(0,  p) * 0.55 };
-      frontArm = { swing: -p * 0.45, bend: 0.1 };
-      backArm  = { swing:  p * 0.45, bend: 0.1 };
+      frontLeg = { swing:  p * 0.5, bend: Math.max(0, -p) * 0.55 };
+      backLeg  = { swing: -p * 0.5, bend: Math.max(0,  p) * 0.55 };
+      frontArm = { swing: -p * 0.4, bend: 0.08 };
+      backArm  = { swing:  p * 0.4, bend: 0.08 };
       break;
     }
     case 'waving': {
       const w = Math.sin(t * 16);
-      frontArm = { swing: Math.PI * 0.92 + w * 0.12, bend: -0.35 + w * 0.15 };
-      backArm  = { swing: 0.12, bend: 0.08 };
-      frontLeg = { swing: 0.06, bend: 0 };
-      backLeg  = { swing: -0.06, bend: 0 };
+      frontArm = { swing: Math.PI * 0.95 + w * 0.12, bend: -0.35 + w * 0.15 };
+      backArm  = { swing: -0.04, bend: 0.08 };
+      frontLeg = { swing: 0, bend: 0 };
+      backLeg  = { swing: 0, bend: 0 };
       break;
     }
     case 'holding-hands': {
-      // Inner (front) arm extends horizontally toward the shared edge.
       frontArm = { swing: Math.PI * 0.5, bend: 0 };
-      backArm  = { swing: 0.15, bend: 0.1 };
-      frontLeg = { swing: 0.06, bend: 0 };
-      backLeg  = { swing: -0.06, bend: 0 };
+      backArm  = { swing: 0.05, bend: 0.08 };
+      frontLeg = { swing: 0, bend: 0 };
+      backLeg  = { swing: 0, bend: 0 };
       break;
     }
     case 'high-five': {
       const w = Math.sin(t * 22) * 0.12;
-      frontArm = { swing: Math.PI * 0.72 + w, bend: -0.2 };
-      backArm  = { swing: 0.15, bend: 0.1 };
-      frontLeg = { swing: 0.06, bend: 0 };
-      backLeg  = { swing: -0.06, bend: 0 };
+      frontArm = { swing: Math.PI * 0.7 + w, bend: -0.2 };
+      backArm  = { swing: 0.05, bend: 0.08 };
+      frontLeg = { swing: 0, bend: 0 };
+      backLeg  = { swing: 0, bend: 0 };
       break;
     }
     case 'hug': {
-      frontArm = { swing: Math.PI * 0.5, bend: 0.55 };
+      frontArm = { swing: Math.PI * 0.52, bend: 0.55 };
       backArm  = { swing: Math.PI * 0.48, bend: 0.55 };
-      frontLeg = { swing: 0.06, bend: 0 };
-      backLeg  = { swing: -0.06, bend: 0 };
+      frontLeg = { swing: 0, bend: 0 };
+      backLeg  = { swing: 0, bend: 0 };
       break;
     }
     case 'dancing': {
       const d = dancePhase;
-      frontArm = { swing: Math.PI * 0.88 + d * 0.25, bend: -0.1 };
-      backArm  = { swing: Math.PI * 1.12 - d * 0.25, bend: -0.1 };
-      frontLeg = { swing:  d * 0.25, bend: Math.max(0, -d) * 0.3 };
-      backLeg  = { swing: -d * 0.25, bend: Math.max(0,  d) * 0.3 };
+      frontArm = { swing: Math.PI * 0.88 + d * 0.22, bend: -0.08 };
+      backArm  = { swing: Math.PI * 1.12 - d * 0.22, bend: -0.08 };
+      frontLeg = { swing:  d * 0.22, bend: Math.max(0, -d) * 0.25 };
+      backLeg  = { swing: -d * 0.22, bend: Math.max(0,  d) * 0.25 };
       break;
     }
     default: { // idle
-      const breathe = Math.sin(t * 2.2) * 0.04;
-      frontArm = { swing: 0.1 + breathe, bend: 0.08 };
-      backArm  = { swing: -0.1 - breathe, bend: 0.08 };
-      frontLeg = { swing: 0.06, bend: 0 };
-      backLeg  = { swing: -0.06, bend: 0 };
+      const breathe = Math.sin(t * 2.2) * 0.02;
+      frontArm = { swing: 0.02 + breathe, bend: 0.05 };
+      backArm  = { swing: -0.02 - breathe, bend: 0.05 };
+      frontLeg = { swing: 0, bend: 0 };
+      backLeg  = { swing: 0, bend: 0 };
       break;
     }
   }
@@ -115,21 +124,27 @@ export function drawStickman(ctx, s) {
   const limbW = Math.max(6, h * 0.055);
   const armW  = Math.max(5, h * 0.045);
 
+  // Which side is "front" depends on facing (facing=1 => front is right)
+  const frontShoulder = s.facing === 1 ? shoulderR : shoulderL;
+  const backShoulder  = s.facing === 1 ? shoulderL : shoulderR;
+  const frontHip = s.facing === 1 ? hipR : hipL;
+  const backHip  = s.facing === 1 ? hipL : hipR;
+
   // Back leg (behind torso)
-  drawLimb(ctx, cx, hipY + bob, legLen, backLeg.swing, backLeg.bend, s.facing,
+  drawLimb(ctx, backHip, hipY + bob, legLen, backLeg.swing, backLeg.bend, s.facing,
            outfit, limbW, 'foot');
   // Back arm (behind torso)
-  drawLimb(ctx, cx - h * 0.02 * s.facing, shoulderY + bob, armLen,
+  drawLimb(ctx, backShoulder, shoulderY + bob, armLen,
            backArm.swing, backArm.bend, s.facing, SKIN, armW, 'hand');
 
   // Torso (shirt)
-  drawTorso(ctx, cx, shoulderY + bob, hipY + bob, h, outfit);
+  drawTorso(ctx, cx, shoulderY + bob, hipY + bob, shirtTopW, shirtBotW, h, outfit);
 
-  // Front leg
-  drawLimb(ctx, cx, hipY + bob, legLen, frontLeg.swing, frontLeg.bend, s.facing,
+  // Front leg (in front of torso)
+  drawLimb(ctx, frontHip, hipY + bob, legLen, frontLeg.swing, frontLeg.bend, s.facing,
            outfit, limbW, 'foot');
   // Front arm
-  drawLimb(ctx, cx + h * 0.02 * s.facing, shoulderY + bob, armLen,
+  drawLimb(ctx, frontShoulder, shoulderY + bob, armLen,
            frontArm.swing, frontArm.bend, s.facing, SKIN, armW, 'hand');
 
   // Head + face
@@ -192,10 +207,8 @@ function drawLimb(ctx, x, y, len, swing, bend, facing, color, width, endMark) {
   }
 }
 
-function drawTorso(ctx, cx, shoulderY, hipY, h, color) {
-  const shirtW = h * 0.28;
-  const hipW = h * 0.2;
-  const r = h * 0.05;
+function drawTorso(ctx, cx, shoulderY, hipY, shirtW, hipW, h, color) {
+  const r = h * 0.04;
   ctx.save();
   ctx.fillStyle = color;
   ctx.strokeStyle = OUTLINE;
@@ -245,14 +258,14 @@ function drawHead(ctx, cx, cy, r, hairColor, facing, state, t) {
   ctx.clip();
   ctx.fillStyle = hairColor;
   // top ~half of head
-  ctx.fillRect(cx - r - 2, cy - r - 2, (r + 2) * 2, r * 1.05);
+  ctx.fillRect(cx - r - 2, cy - r - 2, (r + 2) * 2, r * 1.0);
   // forehead swoop (offset toward facing direction)
   ctx.beginPath();
-  ctx.arc(cx + r * 0.15 * facing, cy - r * 0.05, r * 0.55, 0, Math.PI * 2);
+  ctx.arc(cx + r * 0.2 * facing, cy - r * 0.1, r * 0.5, 0, Math.PI * 2);
   ctx.fill();
-  // a small ear tuft on the back
+  // a small sideburn tuft — high on the temple, not the cheek
   ctx.beginPath();
-  ctx.arc(cx - r * 0.75 * facing, cy + r * 0.1, r * 0.3, 0, Math.PI * 2);
+  ctx.arc(cx - r * 0.82 * facing, cy - r * 0.25, r * 0.25, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
