@@ -251,21 +251,25 @@ function drawHead(ctx, cx, cy, r, hairColor, facing, state, t) {
   ctx.fill();
   ctx.stroke();
 
-  // Hair: clip to face, fill top portion + forehead swoop
+  // Hair: clip to face, draw a rounded cap shape with curved hairline
   ctx.save();
   ctx.beginPath();
   ctx.arc(cx, cy, r * 0.97, 0, Math.PI * 2);
   ctx.clip();
   ctx.fillStyle = hairColor;
-  // top ~half of head
-  ctx.fillRect(cx - r - 2, cy - r - 2, (r + 2) * 2, r * 1.0);
-  // forehead swoop (offset toward facing direction)
   ctx.beginPath();
-  ctx.arc(cx + r * 0.2 * facing, cy - r * 0.1, r * 0.5, 0, Math.PI * 2);
-  ctx.fill();
-  // a small sideburn tuft — high on the temple, not the cheek
-  ctx.beginPath();
-  ctx.arc(cx - r * 0.82 * facing, cy - r * 0.25, r * 0.25, 0, Math.PI * 2);
+  // top half of head
+  ctx.arc(cx, cy, r + 2, Math.PI, 2 * Math.PI, false);
+  // curved hairline back across the forehead with a swoop toward facing
+  ctx.quadraticCurveTo(
+    cx + r * 0.5 * facing, cy + r * 0.15,
+    cx - r * 0.1 * facing, cy + r * 0.12
+  );
+  ctx.quadraticCurveTo(
+    cx - r * 0.7 * facing, cy + r * 0.05,
+    cx - r - 2, cy
+  );
+  ctx.closePath();
   ctx.fill();
   ctx.restore();
 
@@ -278,21 +282,21 @@ function drawHead(ctx, cx, cy, r, hairColor, facing, state, t) {
 
   // Cheeks
   ctx.fillStyle = 'rgba(255,120,140,0.45)';
-  const cheekOff = r * 0.55;
-  const cheekY = cy + r * 0.25;
+  const cheekOff = r * 0.48;
+  const cheekY = cy + r * 0.32;
   ctx.beginPath();
-  ctx.arc(cx - cheekOff, cheekY, r * 0.18, 0, Math.PI * 2);
-  ctx.arc(cx + cheekOff, cheekY, r * 0.18, 0, Math.PI * 2);
+  ctx.arc(cx - cheekOff, cheekY, r * 0.16, 0, Math.PI * 2);
+  ctx.arc(cx + cheekOff, cheekY, r * 0.16, 0, Math.PI * 2);
   ctx.fill();
 
-  // Eyes
-  const blink = Math.max(0, Math.sin(t * 0.6 + (cx * 0.01)) - 0.95) * 20; // rare blink
+  // Eyes — subtle facing bias, but both eyes clearly on the face
+  const blink = Math.max(0, Math.sin(t * 0.6 + (cx * 0.01)) - 0.95) * 20;
   const eyeOpen = blink > 0 ? 0.3 : 1;
-  const eyeDX = r * 0.32 * facing;
-  const eyeSpacing = r * 0.38;
-  const eyeY = cy - r * 0.05;
-  drawEye(ctx, cx + eyeDX - eyeSpacing * facing, eyeY, r * 0.14, r * 0.14 * eyeOpen, facing);
-  drawEye(ctx, cx + eyeDX + eyeSpacing * facing, eyeY, r * 0.14, r * 0.14 * eyeOpen, facing);
+  const eyeDX = r * 0.1 * facing;
+  const eyeSpacing = r * 0.26;
+  const eyeY = cy + r * 0.05;
+  drawEye(ctx, cx + eyeDX - eyeSpacing, eyeY, r * 0.15, r * 0.15 * eyeOpen, facing);
+  drawEye(ctx, cx + eyeDX + eyeSpacing, eyeY, r * 0.15, r * 0.15 * eyeOpen, facing);
 
   // Mouth
   ctx.strokeStyle = OUTLINE;
