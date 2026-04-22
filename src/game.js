@@ -94,9 +94,9 @@ function skyFireworks(n) {
   for (let i = 0; i < n; i++) {
     setTimeout(() => {
       const x = 60 + Math.random() * (w - 120);
-      const y = 40 + Math.random() * (h * 0.42);
-      emitFirework(x, y, 22 + Math.floor(Math.random() * 14));
-    }, i * 220);
+      const y = 40 + Math.random() * (h * 0.5);
+      emitFirework(x, y, 30 + Math.floor(Math.random() * 20));
+    }, i * 160);
   }
 }
 
@@ -142,24 +142,24 @@ function frame(ts) {
     const s = world.stickmen[key];
     if (s.state !== prevStates[key]) {
       if (s.phone === world.phoneId) {
-        if (s.state === 'celebrating') { sparkleBurst(s, 24); skyFireworks(3); }
-        else if (s.state === 'jumping') sparkleBurst(s, 8, { low: true });
-        else if (s.state === 'high-five') { sparkleBurst(s, 16); skyFireworks(2); }
-        else if (s.state === 'dancing') sparkleBurst(s, 12);
+        if (s.state === 'celebrating') { sparkleBurst(s, 30); skyFireworks(7); }
+        else if (s.state === 'jumping') { sparkleBurst(s, 10, { low: true }); skyFireworks(1); }
+        else if (s.state === 'high-five') { sparkleBurst(s, 20); skyFireworks(5); }
+        else if (s.state === 'dancing') { sparkleBurst(s, 14); skyFireworks(3); }
       }
       prevStates[key] = s.state;
     }
     if (s.phone !== prevPhones[key]) {
-      if (s.phone === world.phoneId) sparkleBurst(s, 18, { arrival: true });
+      if (s.phone === world.phoneId) { sparkleBurst(s, 22, { arrival: true }); skyFireworks(2); }
       prevPhones[key] = s.phone;
     }
   }
 
-  // Ambient background fireworks every ~2-5 seconds
+  // Ambient background fireworks — frequent and often a pair at once
   const now = performance.now();
   if (now >= nextFireworkAt) {
-    nextFireworkAt = now + 2000 + Math.random() * 3000;
-    skyFireworks(1);
+    nextFireworkAt = now + 600 + Math.random() * 1200;
+    skyFireworks(1 + Math.floor(Math.random() * 2));
   }
 
   updateParticles(dt);
