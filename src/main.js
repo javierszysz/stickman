@@ -45,9 +45,8 @@ function onPickColor(color) {
   onPeer('peer', p => {
     if (p.connected) {
       showScreen(null);
-      const msg = world.meeting ? 'meeting!' : `room: ${FULL_ROOM}`;
-      showStatus(msg + (DEBUG ? ' · debug' : '') + (MOCK ? ' · mock' : ''));
-      setTimeout(hideStatus, 3000);
+      showStatus(`connected · walk off either edge to visit` + (DEBUG ? ' · debug' : '') + (MOCK ? ' · mock' : ''));
+      setTimeout(hideStatus, 3500);
     } else {
       showStatus('friend disconnected — waiting...');
     }

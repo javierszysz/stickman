@@ -209,17 +209,11 @@ function finishCalibrationIfReady() {
 }
 
 // Returns tilt in -1..1 range (0 = neutral, -1 = full left, +1 = full right).
-// Precedence: keyboard > touch > gyro.
+// Gyro-based tilt is disabled for now — touch and keyboard only.
 export function getTilt() {
-  finishCalibrationIfReady();
   if (state.keyboardTilt !== 0) return state.keyboardTilt;
   if (state.touchTilt !== 0) return state.touchTilt;
-  if (!state.sensorsAvailable) return 0;
-  const dev = state.gamma - state.neutral;
-  const sign = Math.sign(dev);
-  const mag = Math.max(0, Math.abs(dev) - TILT.deadzoneDeg)
-            / (TILT.fullSpeedDeg - TILT.deadzoneDeg);
-  return sign * Math.min(1, mag);
+  return 0;
 }
 
 export function getOrientation() {

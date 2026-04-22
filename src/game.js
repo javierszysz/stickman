@@ -1,7 +1,7 @@
 import { drawStickman } from './stickman.js';
 import { getTilt, onShake } from './input.js';
 import {
-  updateLocalMotion, computeMeeting, sameSpot,
+  updateLocalMotion, sameSpot,
   getLocalStickman, getPeerStickman,
 } from './world.js';
 import { createFSM } from './fsm.js';
@@ -84,9 +84,6 @@ function frame(ts) {
   lastTs = ts;
   poseT += dt;
 
-  // Compute "meeting" first so motion knows whether crossing is allowed
-  world.meeting = computeMeeting(world);
-
   const tilt = getTilt();
   updateLocalMotion(world, tilt, dt);
 
@@ -115,8 +112,11 @@ function render() {
   const ground = Math.min(h - 40, h * 0.88);
   const stickH = Math.min(h * 0.62, Math.max(220, h * 0.55));
 
-  // Edge glow only on the active meeting edge
-  if (world.meeting) drawEdgeGlow(w, h, world.meeting);
+  // Both edges are portals whenever peer is connected
+  if (world.peerConnected) {
+    drawEdgeGlow(w, h, 'left');
+    drawEdgeGlow(w, h, 'right');
+  }
 
   // Render only stickmen physically on THIS phone. Peer's stickman first
   // so local appears on top if they overlap.
