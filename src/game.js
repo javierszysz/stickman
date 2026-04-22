@@ -184,6 +184,30 @@ function render() {
       stateAge: (performance.now() - (s.stateEnteredAt || 0)) / 1000,
     });
   }
+
+  drawDebugReadout(w);
+}
+
+function drawDebugReadout(w) {
+  const A = world.stickmen.A;
+  const B = world.stickmen.B;
+  const parts = [
+    `peer: ${world.peerConnected ? 'Y' : 'N'}`,
+    `me: ${world.phoneId}`,
+    `A@${A.phone} ${A.x.toFixed(2)} ${A.state}`,
+    `B@${B.phone} ${B.x.toFixed(2)} ${B.state}`,
+  ];
+  ctx.save();
+  ctx.font = '12px system-ui, sans-serif';
+  ctx.textBaseline = 'top';
+  const text = parts.join(' · ');
+  const pad = 6;
+  const m = ctx.measureText(text);
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.fillRect(6, 6, m.width + pad * 2, 22);
+  ctx.fillStyle = '#fff';
+  ctx.fillText(text, 6 + pad, 6 + 4);
+  ctx.restore();
 }
 
 function drawEdgeGlow(w, h, side) {
