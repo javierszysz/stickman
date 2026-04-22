@@ -6,7 +6,7 @@ import {
 } from './world.js';
 import { createFSM } from './fsm.js';
 import { send, on as onPeer } from './peer.js';
-import { NET } from './config.js';
+import { NET, DEBUG } from './config.js';
 import { emitSparkle, emitFirework, updateParticles, renderParticles } from './particles.js';
 
 let canvas, ctx;
@@ -16,7 +16,6 @@ let poseT = 0;
 let pendingShake = null;
 let pendingJump = false;
 let running = false;
-let nextFireworkAt = 0;
 const prevStates = { A: 'idle', B: 'idle' };
 const prevPhones = { A: 'A', B: 'B' };
 
@@ -137,29 +136,23 @@ function frame(ts) {
     me.stateEnteredAt = performance.now();
   }
 
-  // Particle triggers: state transitions + crossings
+  // Particle triggers: fireworks only when stickmen meet (celebrating).
+  // Other state changes get a small character-level sparkle, no sky fireworks.
   for (const key of ['A', 'B']) {
     const s = world.stickmen[key];
     if (s.state !== prevStates[key]) {
       if (s.phone === world.phoneId) {
         if (s.state === 'celebrating') { sparkleBurst(s, 30); skyFireworks(7); }
-        else if (s.state === 'jumping') { sparkleBurst(s, 10, { low: true }); skyFireworks(1); }
-        else if (s.state === 'high-five') { sparkleBurst(s, 20); skyFireworks(5); }
-        else if (s.state === 'dancing') { sparkleBurst(s, 14); skyFireworks(3); }
+        else if (s.state === 'jumping') sparkleBurst(s, 8, { low: true });
+        else if (s.state === 'high-five') sparkleBurst(s, 20);
+        else if (s.state === 'dancing') sparkleBurst(s, 14);
       }
       prevStates[key] = s.state;
     }
     if (s.phone !== prevPhones[key]) {
-      if (s.phone === world.phoneId) { sparkleBurst(s, 22, { arrival: true }); skyFireworks(2); }
+      if (s.phone === world.phoneId) sparkleBurst(s, 22, { arrival: true });
       prevPhones[key] = s.phone;
     }
-  }
-
-  // Ambient background fireworks — frequent and often a pair at once
-  const now = performance.now();
-  if (now >= nextFireworkAt) {
-    nextFireworkAt = now + 600 + Math.random() * 1200;
-    skyFireworks(1 + Math.floor(Math.random() * 2));
   }
 
   updateParticles(dt);
@@ -204,7 +197,7 @@ function render() {
     });
   }
 
-  drawDebugReadout(w);
+  if (DEBUG) drawDebugReadout(w);
 }
 
 function drawDebugReadout(w) {
