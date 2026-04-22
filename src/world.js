@@ -4,8 +4,8 @@ import { WALK } from './config.js';
 // - phoneId: 'A' (host) or 'B' (guest), set at peer open
 // - stickmen keyed by owner — each phone owns exactly one stickman and is
 //   authoritative for its position + state + which phone it's currently ON.
-// - docked: true when both phones report similar orientation for a moment.
-// - each phone also tracks the peer's orientation to compute docking.
+// - meeting: 'left' | 'right' | null  — which edge the stickmen are meeting at
+//   (relative to THIS phone). Computed each frame from positions.
 export function createWorld() {
   return {
     phoneId: 'A',
@@ -14,11 +14,7 @@ export function createWorld() {
       A: { x: 0.5, facing: 1,  color: 'pink', state: 'idle', phone: 'A' },
       B: { x: 0.5, facing: -1, color: 'blue', state: 'idle', phone: 'B' },
     },
-    docked: false,
-    dockTimer: 0,
-    undockTimer: 0,
-    myOrientation: null,
-    peerOrientation: null,
+    meeting: null,
     peerConnected: false,
   };
 }
@@ -26,7 +22,6 @@ export function createWorld() {
 export function setPhoneIdentity(world, role) {
   world.phoneId = role === 'host' ? 'A' : 'B';
   world.peerPhoneId = role === 'host' ? 'B' : 'A';
-  // Each stickman starts on its owner's phone.
   world.stickmen.A.phone = 'A';
   world.stickmen.B.phone = 'B';
 }
@@ -37,6 +32,20 @@ export function getLocalStickman(world) {
 
 export function getPeerStickman(world) {
   return world.stickmen[world.peerPhoneId];
+}
+
+// Meeting happens when both stickmen are on their own phones at adjacent
+// edges. Symmetric: either my-right/their-left or my-left/their-right.
+// Returns 'left' | 'right' | null  (relative to THIS phone).
+export function computeMeeting(world) {
+  if (!world.peerConnected) return null;
+  const me = getLocalStickman(world);
+  const peer = getPeerStickman(world);
+  if (me.phone !== world.phoneId || peer.phone !== world.peerPhoneId) return null;
+  const EDGE = 0.06;
+  if (me.x > 1 - EDGE && peer.x < EDGE) return 'right';
+  if (me.x < EDGE && peer.x > 1 - EDGE) return 'left';
+  return null;
 }
 
 // Stickmen currently rendered on THIS phone.
@@ -52,11 +61,10 @@ export function sameSpot(world) {
   return Math.abs(a.x - b.x) < 0.15;
 }
 
-// Move local stickman by tilt. If docked, walking off an edge crosses to the
-// peer's phone (appearing on the opposite edge). If not docked, clamp.
+// Move local stickman by tilt. Cross to peer when walking further past the
+// meeting edge; otherwise clamp.
 export function updateLocalMotion(world, tilt, dt) {
   const me = getLocalStickman(world);
-  // Locked poses don't move
   if (['holding-hands', 'hug', 'high-five', 'waving', 'dancing'].includes(me.state)) return;
 
   const screenW = window.innerWidth || 1;
@@ -66,44 +74,39 @@ export function updateLocalMotion(world, tilt, dt) {
   if (tilt < -0.05) me.facing = -1;
   else if (tilt > 0.05) me.facing = 1;
 
-  if (world.docked) {
-    // Cross to peer's phone when walking off either edge.
-    if (me.x > 1) {
-      me.x = 0.02;
-      me.phone = otherPhone(me.phone);
-    } else if (me.x < 0) {
-      me.x = 0.98;
-      me.phone = otherPhone(me.phone);
-    }
-  } else {
-    me.x = Math.max(0.03, Math.min(0.97, me.x));
-  }
-}
+  const meeting = world.meeting;
 
-function otherPhone(p) { return p === 'A' ? 'B' : 'A'; }
-
-// Docking detection: orientation match for 800ms -> docked; mismatch for 400ms -> undocked.
-export function updateDocking(world, dt) {
-  if (!world.myOrientation || !world.peerOrientation || !world.peerConnected) {
-    world.docked = false;
-    world.dockTimer = 0;
-    world.undockTimer = 0;
+  // Crossing: only when meeting AND walking past the meeting edge.
+  if (meeting === 'right' && me.x > 1 && tilt > 0) {
+    me.x = 0.02;
+    me.phone = world.peerPhoneId;
+    me.facing = 1;
     return;
   }
-  const m = world.myOrientation;
-  const p = world.peerOrientation;
-  const dBeta  = Math.abs((m.beta  || 0) - (p.beta  || 0));
-  const dGamma = Math.abs((m.gamma || 0) - (p.gamma || 0));
-
-  const similar    = dBeta < 15 && dGamma < 15;
-  const dissimilar = dBeta > 25 || dGamma > 25;
-  const dtMs = dt * 1000;
-
-  if (!world.docked) {
-    if (similar) world.dockTimer += dtMs; else world.dockTimer = 0;
-    if (world.dockTimer > 800) { world.docked = true; world.undockTimer = 0; }
-  } else {
-    if (dissimilar) world.undockTimer += dtMs; else world.undockTimer = 0;
-    if (world.undockTimer > 400) { world.docked = false; world.dockTimer = 0; }
+  if (meeting === 'left' && me.x < 0 && tilt < 0) {
+    me.x = 0.98;
+    me.phone = world.peerPhoneId;
+    me.facing = -1;
+    return;
   }
+
+  // If I'm on the peer's phone (visiting), I cross back by walking off the
+  // opposite side from how I arrived.
+  if (me.phone !== world.phoneId) {
+    if (me.x < 0 && tilt < 0) {
+      me.x = 0.98;
+      me.phone = world.phoneId;
+      me.facing = -1;
+      return;
+    }
+    if (me.x > 1 && tilt > 0) {
+      me.x = 0.02;
+      me.phone = world.phoneId;
+      me.facing = 1;
+      return;
+    }
+  }
+
+  me.x = Math.max(0.03, Math.min(0.97, me.x));
 }
+

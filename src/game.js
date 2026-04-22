@@ -1,8 +1,8 @@
 import { drawStickman } from './stickman.js';
-import { getTilt, getOrientation, onShake } from './input.js';
+import { getTilt, onShake } from './input.js';
 import {
-  updateLocalMotion, updateDocking, sameSpot,
-  getLocalStickman, getPeerStickman, stickmenOnThisPhone,
+  updateLocalMotion, computeMeeting, sameSpot,
+  getLocalStickman, getPeerStickman,
 } from './world.js';
 import { createFSM } from './fsm.js';
 import { send, on as onPeer } from './peer.js';
@@ -41,7 +41,6 @@ export function startGame(worldRef) {
       if (msg.color) s.color = msg.color;
       if (msg.phone) s.phone = msg.phone;
     }
-    if (msg.orientation) world.peerOrientation = msg.orientation;
   });
 
   onPeer('peer', p => {
@@ -63,7 +62,6 @@ export function startGame(worldRef) {
       state: me.state,
       color: me.color,
       phone: me.phone,
-      orientation: getOrientation() || world.myOrientation,
     });
   }, 1000 / NET.sendHz);
 
@@ -86,11 +84,8 @@ function frame(ts) {
   lastTs = ts;
   poseT += dt;
 
-  // Sample my orientation for docking
-  const o = getOrientation();
-  if (o) world.myOrientation = o;
-
-  updateDocking(world, dt);
+  // Compute "meeting" first so motion knows whether crossing is allowed
+  world.meeting = computeMeeting(world);
 
   const tilt = getTilt();
   updateLocalMotion(world, tilt, dt);
@@ -120,8 +115,8 @@ function render() {
   const ground = Math.min(h - 40, h * 0.88);
   const stickH = Math.min(h * 0.62, Math.max(220, h * 0.55));
 
-  // Edge glow when docked (both edges are portals)
-  if (world.docked) drawEdgeGlow(w, h);
+  // Edge glow only on the active meeting edge
+  if (world.meeting) drawEdgeGlow(w, h, world.meeting);
 
   // Render only stickmen physically on THIS phone. Peer's stickman first
   // so local appears on top if they overlap.
@@ -142,28 +137,34 @@ function render() {
   }
 }
 
-function drawEdgeGlow(w, h) {
+function drawEdgeGlow(w, h, side) {
   const t = performance.now() * 0.004;
   const pulse = 0.5 + 0.5 * Math.sin(t);
-  const alpha = 0.25 + 0.25 * pulse;
-  const grad = (x0, x1) => {
-    const g = ctx.createLinearGradient(x0, 0, x1, 0);
+  const alpha = 0.25 + 0.3 * pulse;
+  const portalW = Math.min(140, w * 0.15);
+  ctx.save();
+  if (side === 'right') {
+    const g = ctx.createLinearGradient(w, 0, w - portalW, 0);
     g.addColorStop(0, `rgba(255, 230, 120, ${alpha})`);
     g.addColorStop(1, `rgba(255, 230, 120, 0)`);
-    return g;
-  };
-  // left portal
-  ctx.fillStyle = grad(0, 80);
-  ctx.fillRect(0, 0, 80, h);
-  // right portal
-  ctx.fillStyle = grad(w, w - 80);
-  ctx.fillRect(w - 80, 0, 80, h);
-  // Arrows
-  ctx.fillStyle = `rgba(255, 235, 140, ${0.6 + 0.3 * pulse})`;
-  ctx.strokeStyle = '#a88800';
-  ctx.lineWidth = 3;
-  drawArrow(ctx, 40, h / 2, -1, 32);
-  drawArrow(ctx, w - 40, h / 2, 1, 32);
+    ctx.fillStyle = g;
+    ctx.fillRect(w - portalW, 0, portalW, h);
+    ctx.fillStyle = `rgba(255, 235, 140, ${0.6 + 0.3 * pulse})`;
+    ctx.strokeStyle = '#a88800';
+    ctx.lineWidth = 3;
+    drawArrow(ctx, w - 40, h / 2, 1, 36);
+  } else {
+    const g = ctx.createLinearGradient(0, 0, portalW, 0);
+    g.addColorStop(0, `rgba(255, 230, 120, ${alpha})`);
+    g.addColorStop(1, `rgba(255, 230, 120, 0)`);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, portalW, h);
+    ctx.fillStyle = `rgba(255, 235, 140, ${0.6 + 0.3 * pulse})`;
+    ctx.strokeStyle = '#a88800';
+    ctx.lineWidth = 3;
+    drawArrow(ctx, 40, h / 2, -1, 36);
+  }
+  ctx.restore();
 }
 
 function drawArrow(ctx, x, y, dir, size) {
