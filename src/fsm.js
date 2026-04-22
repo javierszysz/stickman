@@ -4,12 +4,15 @@ import { playSound } from './audio.js';
 // Per-stickman state machine. Owns transitions + sound triggers.
 // States: idle, walking, waving, holding-hands, high-five, dancing, hug
 export function createFSM() {
+  let holdCooldownUntil = 0;
+
   const fsm = {
     state: 'idle',
     enteredAt: performance.now(),
     setState(next, reason) {
       if (fsm.state === next) return;
       const prev = fsm.state;
+      if (prev === 'holding-hands') holdCooldownUntil = performance.now() + 800;
       fsm.state = next;
       fsm.enteredAt = performance.now();
       onEnter(next, prev, reason);
@@ -40,14 +43,20 @@ export function createFSM() {
       }
 
       // Proximity transitions
+      const canHold = ctx.nearPeer && now > holdCooldownUntil;
+      const moving = Math.abs(ctx.tilt) > 0.05;
       if (fsm.state === 'idle' || fsm.state === 'walking') {
-        if (ctx.nearPeer) {
+        // Only join hands when near peer AND standing still (not actively walking past)
+        if (canHold && !moving) {
           fsm.setState('holding-hands');
         } else {
-          fsm.setState(Math.abs(ctx.tilt) > 0 ? 'walking' : 'idle');
+          fsm.setState(moving ? 'walking' : 'idle');
         }
-      } else if (fsm.state === 'holding-hands' && !ctx.nearPeer) {
-        fsm.setState(Math.abs(ctx.tilt) > 0 ? 'walking' : 'idle');
+      } else if (fsm.state === 'holding-hands') {
+        // Any tilt/touch input lets you walk away; also exit if pulled apart
+        if (moving || !ctx.nearPeer) {
+          fsm.setState(moving ? 'walking' : 'idle');
+        }
       }
     },
   };

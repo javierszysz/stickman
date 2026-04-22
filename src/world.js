@@ -54,7 +54,8 @@ function otherPhone(p) { return p === 'A' ? 'B' : 'A'; }
 // clamp at edges.
 export function updateLocalMotion(world, tilt, dt) {
   const me = getLocalStickman(world);
-  if (['holding-hands', 'hug', 'high-five', 'waving', 'dancing'].includes(me.state)) return;
+  // 'holding-hands' is intentionally NOT blocked — user can walk away to let go.
+  if (['hug', 'high-five', 'waving', 'dancing'].includes(me.state)) return;
 
   const screenW = window.innerWidth || 1;
   const dx = (tilt * WALK.speedPxPerSec * dt) / screenW;
