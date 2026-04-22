@@ -108,8 +108,8 @@ function render() {
 
   drawBackground(w, h);
 
-  const ground = Math.min(h - 40, h * 0.9);
-  const stickH = Math.min(h * 0.65, 360);
+  const ground = Math.min(h - 40, h * 0.88);
+  const stickH = Math.min(h * 0.62, Math.max(220, h * 0.55));
 
   // Remote first (so local is on top if they overlap at edge)
   if (world.remote.connected && world.remote.x != null) {
@@ -138,24 +138,132 @@ function mirrorStateForRemote(s) {
   return s;
 }
 
+const FLOWERS = []; // populated once per canvas size
+let flowersForWidth = 0;
+
+function makeFlowers(w, ground, h) {
+  FLOWERS.length = 0;
+  const count = Math.floor(w / 80);
+  for (let i = 0; i < count; i++) {
+    FLOWERS.push({
+      x: (i + 0.3 + Math.random() * 0.4) * (w / count),
+      y: ground + 10 + Math.random() * Math.max(10, (h - ground) - 20),
+      color: ['#ff5c8a', '#ffd94d', '#ffffff', '#c77dff'][i % 4],
+      size: 6 + Math.random() * 4,
+    });
+  }
+  flowersForWidth = w;
+}
+
 function drawBackground(w, h) {
   // sky gradient
   const sky = ctx.createLinearGradient(0, 0, 0, h);
-  sky.addColorStop(0, '#87ceeb');
-  sky.addColorStop(1, '#d9f0ff');
+  sky.addColorStop(0, '#7ec8f0');
+  sky.addColorStop(0.7, '#c5e8ff');
+  sky.addColorStop(1, '#e6f4ff');
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, w, h);
 
-  // sun
+  // Sun with rays
+  const sx = w * 0.88, sy = h * 0.2, sr = Math.min(50, h * 0.08);
+  ctx.save();
+  ctx.globalAlpha = 0.35;
+  ctx.strokeStyle = '#fff6a8';
+  ctx.lineWidth = 6;
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2 + performance.now() * 0.0002;
+    ctx.beginPath();
+    ctx.moveTo(sx + Math.cos(a) * (sr + 8), sy + Math.sin(a) * (sr + 8));
+    ctx.lineTo(sx + Math.cos(a) * (sr + 22), sy + Math.sin(a) * (sr + 22));
+    ctx.stroke();
+  }
+  ctx.restore();
   ctx.fillStyle = '#fff6a8';
+  ctx.strokeStyle = '#ffd94d';
+  ctx.lineWidth = 3;
   ctx.beginPath();
-  ctx.arc(w * 0.85, h * 0.2, 50, 0, Math.PI * 2);
+  ctx.arc(sx, sy, sr, 0, Math.PI * 2);
   ctx.fill();
+  ctx.stroke();
+  // Sun smile
+  ctx.strokeStyle = '#c08a00';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.arc(sx - sr * 0.25, sy - sr * 0.1, sr * 0.08, 0, Math.PI * 2);
+  ctx.arc(sx + sr * 0.25, sy - sr * 0.1, sr * 0.08, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(sx, sy + sr * 0.1, sr * 0.35, 0.2, Math.PI - 0.2);
+  ctx.stroke();
+
+  // Clouds (drift slowly with time)
+  const drift = (performance.now() * 0.01) % (w + 300);
+  drawCloud(ctx, ((w * 0.15 + drift) % (w + 300)) - 150, h * 0.15, 60);
+  drawCloud(ctx, ((w * 0.55 + drift * 0.7) % (w + 300)) - 150, h * 0.1, 45);
+  drawCloud(ctx, ((w * 0.8 + drift * 0.9) % (w + 300)) - 150, h * 0.25, 70);
 
   // ground
-  const ground = Math.min(h - 40, h * 0.9);
-  ctx.fillStyle = '#7ec96f';
+  const ground = Math.min(h - 40, h * 0.88);
+  const groundGrad = ctx.createLinearGradient(0, ground, 0, h);
+  groundGrad.addColorStop(0, '#8ed77c');
+  groundGrad.addColorStop(1, '#4a9a3f');
+  ctx.fillStyle = groundGrad;
   ctx.fillRect(0, ground, w, h - ground);
-  ctx.fillStyle = '#5aa84e';
-  ctx.fillRect(0, ground, w, 6);
+  // grass line
+  ctx.strokeStyle = '#3f8036';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let x = 0; x < w; x += 12) {
+    ctx.moveTo(x, ground);
+    ctx.lineTo(x + 4, ground - 5);
+    ctx.moveTo(x + 6, ground);
+    ctx.lineTo(x + 10, ground - 4);
+  }
+  ctx.stroke();
+
+  // flowers (regenerated on resize)
+  if (flowersForWidth !== w) makeFlowers(w, ground, h);
+  for (const f of FLOWERS) drawFlower(ctx, f);
+}
+
+function drawCloud(ctx, x, y, size) {
+  ctx.save();
+  ctx.fillStyle = '#ffffff';
+  ctx.strokeStyle = '#d0e4f0';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(x, y, size * 0.5, 0, Math.PI * 2);
+  ctx.arc(x + size * 0.45, y - size * 0.15, size * 0.4, 0, Math.PI * 2);
+  ctx.arc(x + size * 0.85, y, size * 0.5, 0, Math.PI * 2);
+  ctx.arc(x + size * 0.4, y + size * 0.1, size * 0.45, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawFlower(ctx, f) {
+  // stem
+  ctx.strokeStyle = '#2f7a2a';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(f.x, f.y + f.size);
+  ctx.lineTo(f.x, f.y - f.size * 0.3);
+  ctx.stroke();
+  // petals
+  ctx.fillStyle = f.color;
+  ctx.strokeStyle = '#2a1b14';
+  ctx.lineWidth = 1.2;
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.arc(f.x + Math.cos(a) * f.size * 0.6, f.y + Math.sin(a) * f.size * 0.6,
+            f.size * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+  // center
+  ctx.fillStyle = '#ffd94d';
+  ctx.beginPath();
+  ctx.arc(f.x, f.y, f.size * 0.35, 0, Math.PI * 2);
+  ctx.fill();
 }
