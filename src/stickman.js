@@ -251,26 +251,25 @@ function drawHead(ctx, cx, cy, r, hairColor, facing, state, t) {
   ctx.fill();
   ctx.stroke();
 
-  // Hair: clip to face, draw a rounded cap shape with curved hairline
+  // Hair: clipped rounded cap with a gentle bangs dip, plus a small forehead swoop
   ctx.save();
   ctx.beginPath();
   ctx.arc(cx, cy, r * 0.97, 0, Math.PI * 2);
   ctx.clip();
   ctx.fillStyle = hairColor;
+
+  // Main cap: top half of head + a symmetric bangs dip
   ctx.beginPath();
-  // top half of head
-  ctx.arc(cx, cy, r + 2, Math.PI, 2 * Math.PI, false);
-  // curved hairline back across the forehead with a swoop toward facing
-  ctx.quadraticCurveTo(
-    cx + r * 0.5 * facing, cy + r * 0.15,
-    cx - r * 0.1 * facing, cy + r * 0.12
-  );
-  ctx.quadraticCurveTo(
-    cx - r * 0.7 * facing, cy + r * 0.05,
-    cx - r - 2, cy
-  );
+  ctx.arc(cx, cy, r + 1, Math.PI, 2 * Math.PI, false);
+  ctx.quadraticCurveTo(cx, cy + r * 0.18, cx - r - 1, cy);
   ctx.closePath();
   ctx.fill();
+
+  // Side swoop toward facing direction (tuft of bangs on forehead)
+  ctx.beginPath();
+  ctx.arc(cx + r * 0.3 * facing, cy - r * 0.1, r * 0.38, 0, Math.PI * 2);
+  ctx.fill();
+
   ctx.restore();
 
   // Re-stroke face outline on top of hair
