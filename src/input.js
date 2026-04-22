@@ -13,9 +13,14 @@ const state = {
   touchMoved: false,
   activeTouchId: null,
   shakeListeners: [],
+  jumpListeners: [],
   lastShakeTs: 0,
+  lastTapEndTs: 0,
+  pendingWaveTimeout: null,
   sensorsAvailable: false,
 };
+
+const DOUBLE_TAP_MS = 320;
 
 export async function initInput() {
   // iOS: requestPermission on a user gesture. Android/Silk: just add listeners.
@@ -129,11 +134,7 @@ function onTouchEnd(e) {
     state.touchTilt = 0;
     state.activeTouchId = null;
     if (wasActive && !state.touchMoved && held < 300 && !wasTilt) {
-      const now = performance.now();
-      if (now - state.lastShakeTs > MOTION.shakeCooldownMs) {
-        state.lastShakeTs = now;
-        state.shakeListeners.forEach(fn => fn('soft'));
-      }
+      handleQuickTap();
     }
     return;
   }
@@ -143,6 +144,28 @@ function onTouchEnd(e) {
   if (!t) return;
   state.touchTilt = 0;
   state.activeTouchId = null;
+}
+
+// A short tap: either a wave or (if another tap follows within the window)
+// a jump. We delay the wave fire by DOUBLE_TAP_MS so the double-tap can cancel it.
+function handleQuickTap() {
+  const now = performance.now();
+  const sinceLastTap = now - state.lastTapEndTs;
+  state.lastTapEndTs = now;
+  if (sinceLastTap < DOUBLE_TAP_MS && state.pendingWaveTimeout) {
+    clearTimeout(state.pendingWaveTimeout);
+    state.pendingWaveTimeout = null;
+    state.jumpListeners.forEach(fn => fn());
+    state.lastTapEndTs = 0; // don't treat a third tap as another double
+    return;
+  }
+  state.pendingWaveTimeout = setTimeout(() => {
+    state.pendingWaveTimeout = null;
+    if (now - state.lastShakeTs > MOTION.shakeCooldownMs) {
+      state.lastShakeTs = now;
+      state.shakeListeners.forEach(fn => fn('soft'));
+    }
+  }, DOUBLE_TAP_MS);
 }
 
 function resetHeld() {
@@ -184,11 +207,7 @@ function onMouseUp(e) {
   const wasTilt = state.touchTilt !== 0;
   state.touchTilt = 0;
   if (!state.touchMoved && held < 300 && !wasTilt) {
-    const now = performance.now();
-    if (now - state.lastShakeTs > MOTION.shakeCooldownMs) {
-      state.lastShakeTs = now;
-      state.shakeListeners.forEach(fn => fn('soft'));
-    }
+    handleQuickTap();
   }
 }
 
@@ -246,6 +265,7 @@ export function getOrientation() {
 }
 
 export function onShake(fn) { state.shakeListeners.push(fn); }
+export function onJump(fn) { state.jumpListeners.push(fn); }
 
 export function recalibrate() {
   beginCalibration();

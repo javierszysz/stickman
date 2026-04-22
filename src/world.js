@@ -12,8 +12,8 @@ export function createWorld() {
     phoneId: 'A',
     peerPhoneId: 'B',
     stickmen: {
-      A: { x: 0.5, facing: 1,  color: 'pink', state: 'idle', phone: 'A' },
-      B: { x: 0.5, facing: -1, color: 'blue', state: 'idle', phone: 'B' },
+      A: { x: 0.5, facing: 1,  color: 'pink', state: 'idle', phone: 'A', stateEnteredAt: 0 },
+      B: { x: 0.5, facing: -1, color: 'blue', state: 'idle', phone: 'B', stateEnteredAt: 0 },
     },
     peerConnected: false,
   };

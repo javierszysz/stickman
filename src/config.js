@@ -33,6 +33,7 @@ export const STATE_TIMEOUTS = {
   celebrating: 1500,
   highFive: 1500,
   dancing: 2500,
+  jumping: 600,
 };
 
 export const qs = new URLSearchParams(location.search);

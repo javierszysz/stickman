@@ -18,7 +18,7 @@ export function createFSM() {
       onEnter(next, prev, reason);
     },
     tick(ctx) {
-      // ctx: { tilt: -1..1, nearPeer: bool, peerState: string|null, shake: 'soft'|'hard'|null }
+      // ctx: { tilt, nearPeer, peerState, shake: 'soft'|'hard'|null, jump: bool }
       const now = performance.now();
       const age = now - fsm.enteredAt;
 
@@ -31,10 +31,17 @@ export function createFSM() {
         fsm.setState('idle');
       } else if (fsm.state === 'dancing' && age > STATE_TIMEOUTS.dancing) {
         fsm.setState('idle');
+      } else if (fsm.state === 'jumping' && age > STATE_TIMEOUTS.jumping) {
+        fsm.setState(Math.abs(ctx.tilt) > 0 ? 'walking' : 'idle');
+      }
+
+      // Jump takes precedence — double-tap can interrupt idle/walking/waving
+      if (ctx.jump && fsm.state !== 'jumping' && fsm.state !== 'high-five') {
+        fsm.setState('jumping');
       }
 
       // Shake-triggered transitions
-      if (ctx.shake) {
+      if (ctx.shake && fsm.state !== 'jumping') {
         if (ctx.nearPeer) {
           fsm.setState(ctx.shake === 'hard' ? 'high-five' : 'dancing');
         } else if (fsm.state !== 'high-five') {
@@ -67,5 +74,9 @@ function onEnter(next, prev, reason) {
     case 'celebrating': playSound('giggle'); break;
     case 'dancing': playSound('giggle'); break;
     case 'high-five': playSound('highfive'); break;
+    case 'jumping': playSound('boing'); break;
   }
 }
+
+// Expose for the game loop to read back the entry timestamp.
+export function fsmAge(fsm) { return performance.now() - fsm.enteredAt; }

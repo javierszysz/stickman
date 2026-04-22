@@ -40,13 +40,17 @@ export function drawStickman(ctx, s) {
   const walking = s.state === 'walking';
   const dancing = s.state === 'dancing';
   const celebrating = s.state === 'celebrating';
+  const jumping = s.state === 'jumping';
   const walkFreq = 9;
   const walkPhase = walking ? Math.sin(t * walkFreq) : 0;
   const walkBob = walking ? (1 - Math.abs(Math.cos(t * walkFreq))) * h * 0.02 : 0;
   const dancePhase = dancing ? Math.sin(t * 6) : 0;
   const danceBob = dancing ? Math.abs(Math.sin(t * 6)) * h * 0.04 : 0;
   const celebrateBob = celebrating ? Math.abs(Math.sin(t * 8)) * h * 0.05 : 0;
-  const bob = -(walkBob + danceBob + celebrateBob);
+  // Parabolic jump arc: 0..1..0 over ~0.6s
+  const jumpT = jumping ? Math.max(0, Math.min(1, (s.stateAge || 0) / 0.6)) : 0;
+  const jumpBob = jumping ? 4 * jumpT * (1 - jumpT) * h * 0.32 : 0;
+  const bob = -(walkBob + danceBob + celebrateBob + jumpBob);
 
   // ---- Per-state limb swings ----
   // Convention:
@@ -102,6 +106,18 @@ export function drawStickman(ctx, s) {
       backArm  = { swing: Math.PI * 1.08 - w * 0.18, bend: -0.25 - w * 0.1 };
       frontLeg = { swing: 0.02, bend: 0 };
       backLeg  = { swing: -0.02, bend: 0 };
+      break;
+    }
+    case 'jumping': {
+      // Arms thrown up during takeoff, tucked knees at peak.
+      const jt = jumpT;
+      const ascend = jt < 0.5 ? jt * 2 : (1 - jt) * 2; // 0..1..0
+      frontArm = { swing: Math.PI * 0.9 + ascend * 0.1, bend: -0.15 };
+      backArm  = { swing: Math.PI * 1.1 - ascend * 0.1, bend: -0.15 };
+      // Legs tuck up at the peak of the jump
+      const tuck = ascend;
+      frontLeg = { swing: 0.08, bend: tuck * 0.7 };
+      backLeg  = { swing: -0.08, bend: tuck * 0.7 };
       break;
     }
     case 'dancing': {

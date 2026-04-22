@@ -1,5 +1,5 @@
 import { drawStickman } from './stickman.js';
-import { getTilt, onShake } from './input.js';
+import { getTilt, onShake, onJump } from './input.js';
 import {
   updateLocalMotion, sameSpot,
   getLocalStickman, getPeerStickman,
@@ -7,13 +7,17 @@ import {
 import { createFSM } from './fsm.js';
 import { send, on as onPeer } from './peer.js';
 import { NET } from './config.js';
+import { emitSparkle, updateParticles, renderParticles } from './particles.js';
 
 let canvas, ctx;
 let world, fsm;
 let lastTs = 0;
 let poseT = 0;
 let pendingShake = null;
+let pendingJump = false;
 let running = false;
+const prevStates = { A: 'idle', B: 'idle' };
+const prevPhones = { A: 'A', B: 'B' };
 
 export function startGame(worldRef) {
   world = worldRef;
@@ -25,6 +29,7 @@ export function startGame(worldRef) {
   window.addEventListener('resize', resizeCanvas);
 
   onShake(intensity => { pendingShake = intensity; });
+  onJump(() => { pendingJump = true; });
 
   onPeer('data', msg => {
     if (!msg) return;
@@ -37,7 +42,10 @@ export function startGame(worldRef) {
       const s = world.stickmen[msg.owner];
       if (typeof msg.x === 'number') s.x = msg.x;
       if (typeof msg.facing === 'number') s.facing = msg.facing;
-      if (msg.state) s.state = msg.state;
+      if (msg.state && msg.state !== s.state) {
+        s.state = msg.state;
+        s.stateEnteredAt = performance.now();
+      }
       if (msg.color) s.color = msg.color;
       if (msg.phone) s.phone = msg.phone;
     }
@@ -69,6 +77,16 @@ export function startGame(worldRef) {
   requestAnimationFrame(frame);
 }
 
+function sparkleBurst(stickman, count, opts = {}) {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const ground = Math.min(h - 40, h * 0.88);
+  const stickH = Math.min(h * 0.62, Math.max(220, h * 0.55));
+  const x = stickman.x * w;
+  const y = opts.arrival ? ground - stickH * 0.3 : (opts.low ? ground - 10 : ground - stickH * 0.5);
+  emitSparkle(x, y, count, opts);
+}
+
 function resizeCanvas() {
   const dpr = window.devicePixelRatio || 1;
   canvas.width  = window.innerWidth  * dpr;
@@ -85,19 +103,47 @@ function frame(ts) {
   poseT += dt;
 
   const tilt = getTilt();
+  const me = getLocalStickman(world);
+  const peer = getPeerStickman(world);
+  const prevPhone = me.phone;
+
   updateLocalMotion(world, tilt, dt);
 
   const nearPeer = sameSpot(world);
-  const me = getLocalStickman(world);
-  const peer = getPeerStickman(world);
   fsm.tick({
     tilt,
     nearPeer,
     peerState: peer.state,
     shake: pendingShake,
+    jump: pendingJump,
   });
   pendingShake = null;
-  me.state = fsm.state;
+  pendingJump = false;
+  if (me.state !== fsm.state) {
+    me.state = fsm.state;
+    me.stateEnteredAt = performance.now();
+  }
+
+  // Particle triggers: state transitions + crossings
+  for (const key of ['A', 'B']) {
+    const s = world.stickmen[key];
+    if (s.state !== prevStates[key]) {
+      if (s.phone === world.phoneId) {
+        if (s.state === 'celebrating') sparkleBurst(s, 24);
+        else if (s.state === 'jumping') sparkleBurst(s, 8, { low: true });
+        else if (s.state === 'high-five') sparkleBurst(s, 16);
+        else if (s.state === 'dancing') sparkleBurst(s, 12);
+      }
+      prevStates[key] = s.state;
+    }
+    if (s.phone !== prevPhones[key]) {
+      // Crossed phones — emit a sparkle on THIS phone if the stickman is now here
+      if (s.phone === world.phoneId) sparkleBurst(s, 18, { arrival: true });
+      prevPhones[key] = s.phone;
+    }
+  }
+
+  updateParticles(dt);
 
   render();
   requestAnimationFrame(frame);
@@ -118,6 +164,8 @@ function render() {
     drawEdgeGlow(w, h, 'right');
   }
 
+  renderParticles(ctx);
+
   // Render only stickmen physically on THIS phone. Peer's stickman first
   // so local appears on top if they overlap.
   const me = world.phoneId;
@@ -133,6 +181,7 @@ function render() {
       color: s.color,
       poseT,
       state: s.state,
+      stateAge: (performance.now() - (s.stateEnteredAt || 0)) / 1000,
     });
   }
 }
