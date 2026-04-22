@@ -7,7 +7,7 @@ import {
 import { createFSM } from './fsm.js';
 import { send, on as onPeer } from './peer.js';
 import { NET } from './config.js';
-import { emitSparkle, updateParticles, renderParticles } from './particles.js';
+import { emitSparkle, emitFirework, updateParticles, renderParticles } from './particles.js';
 
 let canvas, ctx;
 let world, fsm;
@@ -16,6 +16,7 @@ let poseT = 0;
 let pendingShake = null;
 let pendingJump = false;
 let running = false;
+let nextFireworkAt = 0;
 const prevStates = { A: 'idle', B: 'idle' };
 const prevPhones = { A: 'A', B: 'B' };
 
@@ -87,6 +88,18 @@ function sparkleBurst(stickman, count, opts = {}) {
   emitSparkle(x, y, count, opts);
 }
 
+function skyFireworks(n) {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  for (let i = 0; i < n; i++) {
+    setTimeout(() => {
+      const x = 60 + Math.random() * (w - 120);
+      const y = 40 + Math.random() * (h * 0.42);
+      emitFirework(x, y, 22 + Math.floor(Math.random() * 14));
+    }, i * 220);
+  }
+}
+
 function resizeCanvas() {
   const dpr = window.devicePixelRatio || 1;
   canvas.width  = window.innerWidth  * dpr;
@@ -129,18 +142,24 @@ function frame(ts) {
     const s = world.stickmen[key];
     if (s.state !== prevStates[key]) {
       if (s.phone === world.phoneId) {
-        if (s.state === 'celebrating') sparkleBurst(s, 24);
+        if (s.state === 'celebrating') { sparkleBurst(s, 24); skyFireworks(3); }
         else if (s.state === 'jumping') sparkleBurst(s, 8, { low: true });
-        else if (s.state === 'high-five') sparkleBurst(s, 16);
+        else if (s.state === 'high-five') { sparkleBurst(s, 16); skyFireworks(2); }
         else if (s.state === 'dancing') sparkleBurst(s, 12);
       }
       prevStates[key] = s.state;
     }
     if (s.phone !== prevPhones[key]) {
-      // Crossed phones — emit a sparkle on THIS phone if the stickman is now here
       if (s.phone === world.phoneId) sparkleBurst(s, 18, { arrival: true });
       prevPhones[key] = s.phone;
     }
+  }
+
+  // Ambient background fireworks every ~2-5 seconds
+  const now = performance.now();
+  if (now >= nextFireworkAt) {
+    nextFireworkAt = now + 2000 + Math.random() * 3000;
+    skyFireworks(1);
   }
 
   updateParticles(dt);
