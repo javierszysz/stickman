@@ -1,6 +1,9 @@
 import { drawStickman } from './stickman.js';
-import { getTilt, onShake } from './input.js';
-import { updateLocalMotion, computeNearPeer, snapLocalToEdge } from './world.js';
+import { getTilt, getOrientation, onShake } from './input.js';
+import {
+  updateLocalMotion, updateDocking, sameSpot,
+  getLocalStickman, getPeerStickman, stickmenOnThisPhone,
+} from './world.js';
 import { createFSM } from './fsm.js';
 import { send, on as onPeer } from './peer.js';
 import { NET } from './config.js';
@@ -26,37 +29,41 @@ export function startGame(worldRef) {
   onPeer('data', msg => {
     if (!msg) return;
     if (msg.event === 'hello') {
-      if (msg.color) world.remote.color = msg.color;
+      if (msg.color && msg.owner) world.stickmen[msg.owner].color = msg.color;
       return;
     }
-    if (msg.event === 'shake') {
-      // peer shook; could mirror, but we mostly react locally
-      return;
+    // Full state packet from peer
+    if (msg.owner && msg.owner !== world.phoneId) {
+      const s = world.stickmen[msg.owner];
+      if (typeof msg.x === 'number') s.x = msg.x;
+      if (typeof msg.facing === 'number') s.facing = msg.facing;
+      if (msg.state) s.state = msg.state;
+      if (msg.color) s.color = msg.color;
+      if (msg.phone) s.phone = msg.phone;
     }
-    if (typeof msg.x === 'number') {
-      world.remote.x = msg.x;
-      world.remote.facing = msg.facing ?? world.remote.facing;
-      world.remote.state = msg.state || 'idle';
-      if (msg.color) world.remote.color = msg.color;
-      world.remote.lastSeenTs = performance.now();
-    }
+    if (msg.orientation) world.peerOrientation = msg.orientation;
   });
 
   onPeer('peer', p => {
-    world.remote.connected = !!p.connected;
+    world.peerConnected = !!p.connected;
     if (p.connected) {
-      send({ event: 'hello', color: world.local.color });
+      const me = getLocalStickman(world);
+      send({ event: 'hello', owner: world.phoneId, color: me.color });
     }
   });
 
   // Networking send tick
   setInterval(() => {
+    const me = getLocalStickman(world);
     send({
       t: Date.now(),
-      x: world.local.x,
-      facing: world.local.facing,
-      state: world.local.state,
-      color: world.local.color,
+      owner: world.phoneId,
+      x: me.x,
+      facing: me.facing,
+      state: me.state,
+      color: me.color,
+      phone: me.phone,
+      orientation: getOrientation() || world.myOrientation,
     });
   }, 1000 / NET.sendHz);
 
@@ -79,24 +86,26 @@ function frame(ts) {
   lastTs = ts;
   poseT += dt;
 
+  // Sample my orientation for docking
+  const o = getOrientation();
+  if (o) world.myOrientation = o;
+
+  updateDocking(world, dt);
+
   const tilt = getTilt();
   updateLocalMotion(world, tilt, dt);
 
-  const nearPeer = computeNearPeer(world);
-  const prevState = world.local.state;
+  const nearPeer = sameSpot(world);
+  const me = getLocalStickman(world);
+  const peer = getPeerStickman(world);
   fsm.tick({
     tilt,
     nearPeer,
-    peerState: world.remote.state,
+    peerState: peer.state,
     shake: pendingShake,
   });
   pendingShake = null;
-  world.local.state = fsm.state;
-
-  // Snap to edge when just entered holding-hands
-  if (prevState !== 'holding-hands' && world.local.state === 'holding-hands') {
-    snapLocalToEdge(world);
-  }
+  me.state = fsm.state;
 
   render();
   requestAnimationFrame(frame);
@@ -111,31 +120,60 @@ function render() {
   const ground = Math.min(h - 40, h * 0.88);
   const stickH = Math.min(h * 0.62, Math.max(220, h * 0.55));
 
-  // Remote first (so local is on top if they overlap at edge)
-  if (world.remote.connected && world.remote.x != null) {
+  // Edge glow when docked (both edges are portals)
+  if (world.docked) drawEdgeGlow(w, h);
+
+  // Render only stickmen physically on THIS phone. Peer's stickman first
+  // so local appears on top if they overlap.
+  const me = world.phoneId;
+  const here = Object.entries(world.stickmen)
+    .filter(([, s]) => s.phone === me)
+    .sort(([ka], [kb]) => (ka === me ? 1 : 0) - (kb === me ? 1 : 0));
+  for (const [, s] of here) {
     drawStickman(ctx, {
-      x: world.remote.x * w,
+      x: s.x * w,
       groundY: ground,
       h: stickH,
-      facing: world.remote.facing,
-      color: world.remote.color,
+      facing: s.facing,
+      color: s.color,
       poseT,
-      state: mirrorStateForRemote(world.remote.state),
+      state: s.state,
     });
   }
-  drawStickman(ctx, {
-    x: world.local.x * w,
-    groundY: ground,
-    h: stickH,
-    facing: world.local.facing,
-    color: world.local.color,
-    poseT,
-    state: world.local.state,
-  });
 }
 
-function mirrorStateForRemote(s) {
-  return s;
+function drawEdgeGlow(w, h) {
+  const t = performance.now() * 0.004;
+  const pulse = 0.5 + 0.5 * Math.sin(t);
+  const alpha = 0.25 + 0.25 * pulse;
+  const grad = (x0, x1) => {
+    const g = ctx.createLinearGradient(x0, 0, x1, 0);
+    g.addColorStop(0, `rgba(255, 230, 120, ${alpha})`);
+    g.addColorStop(1, `rgba(255, 230, 120, 0)`);
+    return g;
+  };
+  // left portal
+  ctx.fillStyle = grad(0, 80);
+  ctx.fillRect(0, 0, 80, h);
+  // right portal
+  ctx.fillStyle = grad(w, w - 80);
+  ctx.fillRect(w - 80, 0, 80, h);
+  // Arrows
+  ctx.fillStyle = `rgba(255, 235, 140, ${0.6 + 0.3 * pulse})`;
+  ctx.strokeStyle = '#a88800';
+  ctx.lineWidth = 3;
+  drawArrow(ctx, 40, h / 2, -1, 32);
+  drawArrow(ctx, w - 40, h / 2, 1, 32);
+}
+
+function drawArrow(ctx, x, y, dir, size) {
+  ctx.beginPath();
+  ctx.moveTo(x + dir * size, y);
+  ctx.lineTo(x - dir * size * 0.5, y - size * 0.7);
+  ctx.lineTo(x - dir * size * 0.5, y + size * 0.7);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
 }
 
 const FLOWERS = []; // populated once per canvas size
