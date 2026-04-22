@@ -30,9 +30,10 @@ export const NET = {
 
 export const STATE_TIMEOUTS = {
   waving: 1200,
+  celebrating: 1500,
   highFive: 1500,
   dancing: 2500,
-  hug: 2000,
+  jumping: 600,
 };
 
 export const qs = new URLSearchParams(location.search);

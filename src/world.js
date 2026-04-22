@@ -1,58 +1,83 @@
 import { WALK } from './config.js';
 
-// Positions are normalized 0..1 along screen X. y is fixed (ground level).
+// World state (held on each device):
+// - phoneId: 'A' (host) or 'B' (guest), set at peer open
+// - stickmen keyed by owner — each phone owns exactly one stickman and is
+//   authoritative for its position + state + which phone it's currently ON.
+// - When the peer is connected, BOTH edges of every phone act as a portal
+//   ("gateway") to the other device: walk off any edge and the stickman
+//   appears on the opposite edge of the peer's phone.
 export function createWorld() {
   return {
-    local: {
-      x: 0.5, facing: 1, color: 'pink',
-      state: 'idle',
+    phoneId: 'A',
+    peerPhoneId: 'B',
+    stickmen: {
+      A: { x: 0.5, facing: 1,  color: 'pink', state: 'idle', phone: 'A', stateEnteredAt: 0 },
+      B: { x: 0.5, facing: -1, color: 'blue', state: 'idle', phone: 'B', stateEnteredAt: 0 },
     },
-    remote: {
-      x: null, facing: -1, color: 'blue',
-      state: 'idle',
-      connected: false,
-      lastSeenTs: 0,
-    },
+    peerConnected: false,
   };
 }
 
+export function setPhoneIdentity(world, role) {
+  world.phoneId = role === 'host' ? 'A' : 'B';
+  world.peerPhoneId = role === 'host' ? 'B' : 'A';
+  world.stickmen.A.phone = 'A';
+  world.stickmen.B.phone = 'B';
+}
+
+export function getLocalStickman(world) {
+  return world.stickmen[world.phoneId];
+}
+
+export function getPeerStickman(world) {
+  return world.stickmen[world.peerPhoneId];
+}
+
+// Stickmen currently rendered on THIS phone.
+export function stickmenOnThisPhone(world) {
+  return Object.values(world.stickmen).filter(s => s.phone === world.phoneId);
+}
+
+// Are the two stickmen on the same phone and close in x?
+export function sameSpot(world) {
+  const a = world.stickmen.A;
+  const b = world.stickmen.B;
+  if (a.phone !== b.phone) return false;
+  return Math.abs(a.x - b.x) < 0.15;
+}
+
+function otherPhone(p) { return p === 'A' ? 'B' : 'A'; }
+
+// Move local stickman by tilt. When peer connected, walking off either edge
+// crosses to peer's phone (appearing on the opposite edge). If not connected,
+// clamp at edges.
 export function updateLocalMotion(world, tilt, dt) {
-  if (world.local.state === 'holding-hands' || world.local.state === 'hug'
-   || world.local.state === 'high-five') {
-    // lock near right edge if in joint state
-    return;
-  }
-  if (world.local.state === 'waving' || world.local.state === 'dancing') return;
+  const me = getLocalStickman(world);
+  // 'holding-hands' is intentionally NOT blocked — user can walk away to let go.
+  if (['hug', 'high-five', 'waving', 'dancing'].includes(me.state)) return;
 
   const screenW = window.innerWidth || 1;
   const dx = (tilt * WALK.speedPxPerSec * dt) / screenW;
-  world.local.x = Math.max(0.03, Math.min(0.97, world.local.x + dx));
-  if (tilt < -0.05) world.local.facing = -1;
-  else if (tilt > 0.05) world.local.facing = 1;
-}
+  me.x += dx;
 
-// "Near peer" means we are near the shared edge and peer is near their shared edge too.
-// By convention: local stickman meets peer at local's *right* edge (and peer's *left*).
-// We don't know which physical side the other phone is on — so accept either: our right +
-// their left, OR our left + their right (mirror).
-export function computeNearPeer(world) {
-  if (!world.remote.connected || world.remote.x == null) return false;
-  const edge = WALK.edgeBufferFrac;
-  const meRight  = world.local.x  > 1 - edge;
-  const meLeft   = world.local.x  < edge;
-  const themLeft  = world.remote.x < edge;
-  const themRight = world.remote.x > 1 - edge;
-  return (meRight && themLeft) || (meLeft && themRight);
-}
+  if (tilt < -0.05) me.facing = -1;
+  else if (tilt > 0.05) me.facing = 1;
 
-// When entering holding-hands, snap local to the edge that matches.
-export function snapLocalToEdge(world) {
-  const edge = WALK.edgeBufferFrac;
-  if (world.remote.x != null && world.remote.x < 0.5) {
-    world.local.x = 1 - edge * 0.5;
-    world.local.facing = 1;
-  } else {
-    world.local.x = edge * 0.5;
-    world.local.facing = -1;
+  if (world.peerConnected) {
+    if (me.x >= 0.97 && tilt > 0) {
+      me.x = 0.03;
+      me.phone = otherPhone(me.phone);
+      me.facing = 1;
+      return;
+    }
+    if (me.x <= 0.03 && tilt < 0) {
+      me.x = 0.97;
+      me.phone = otherPhone(me.phone);
+      me.facing = -1;
+      return;
+    }
   }
+
+  me.x = Math.max(0.02, Math.min(0.98, me.x));
 }
