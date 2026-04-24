@@ -175,7 +175,8 @@ export function drawStickman(ctx, s) {
            frontArm.swing, frontArm.bend, s.facing, SKIN, armW, 'hand');
 
   // Head + face
-  drawHead(ctx, cx, headCY + bob, headR, outfit, s.facing, s.state, t);
+  drawHead(ctx, cx, headCY + bob, headR, outfit, s.facing, s.state, t,
+           s.outfit || 'plain', s.stateAge || 0);
 
   ctx.restore();
 }
@@ -267,8 +268,21 @@ function drawTorso(ctx, cx, shoulderY, hipY, shirtW, hipW, h, color) {
   ctx.restore();
 }
 
-function drawHead(ctx, cx, cy, r, hairColor, facing, state, t) {
+function drawHead(ctx, cx, cy, r, hairColor, facing, state, t, outfit, stateAge) {
   ctx.save();
+
+  // Idle head tilt: gentle rocking after 4s of being idle.
+  // Deterministic from t so both peers see the same animation.
+  let tiltRad = 0;
+  if (state === 'idle' && stateAge > 4) {
+    tiltRad = Math.sin((stateAge - 4) * 0.8) * 0.08;
+  }
+  if (tiltRad !== 0) {
+    ctx.translate(cx, cy + r * 0.9);
+    ctx.rotate(tiltRad);
+    ctx.translate(-cx, -(cy + r * 0.9));
+  }
+
   // Face (skin) fill + outline
   ctx.fillStyle = SKIN;
   ctx.strokeStyle = OUTLINE;
@@ -315,9 +329,12 @@ function drawHead(ctx, cx, cy, r, hairColor, facing, state, t) {
   ctx.arc(cx + cheekOff, cheekY, r * 0.16, 0, Math.PI * 2);
   ctx.fill();
 
-  // Eyes — subtle facing bias, but both eyes clearly on the face
-  const blink = Math.max(0, Math.sin(t * 0.6 + (cx * 0.01)) - 0.95) * 20;
-  const eyeOpen = blink > 0 ? 0.3 : 1;
+  // Eyes — subtle facing bias. Blink more often when idle.
+  const blinkPhase = t * 0.9 + (cx * 0.01);
+  const blink = Math.max(0, Math.sin(blinkPhase) - 0.92) * 14;
+  // Yawn: every ~12s of idle, briefly close eyes + open mouth wide.
+  const yawning = state === 'idle' && stateAge > 5 && (stateAge % 12) > 11.4;
+  const eyeOpen = (blink > 0 || yawning) ? 0.2 : 1;
   const eyeDX = r * 0.1 * facing;
   const eyeSpacing = r * 0.26;
   const eyeY = cy + r * 0.05;
@@ -331,7 +348,13 @@ function drawHead(ctx, cx, cy, r, hairColor, facing, state, t) {
   const mouthY = cy + r * 0.38;
   const mouthW = r * 0.5;
   const isOpen = state === 'dancing' || state === 'waving' || state === 'high-five' || state === 'celebrating';
-  if (isOpen) {
+  if (yawning) {
+    // Big oval mouth for yawn
+    ctx.beginPath();
+    ctx.ellipse(cx + r * 0.1 * facing, mouthY + r * 0.05, mouthW * 0.55, r * 0.32, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  } else if (isOpen) {
     ctx.beginPath();
     ctx.ellipse(cx + r * 0.1 * facing, mouthY, mouthW * 0.6, r * 0.2, 0, 0, Math.PI * 2);
     ctx.fill();
@@ -343,6 +366,71 @@ function drawHead(ctx, cx, cy, r, hairColor, facing, state, t) {
     ctx.stroke();
   }
 
+  // Outfit: hat or bow on top of head
+  if (outfit === 'bow') drawBow(ctx, cx, cy - r * 0.95, r, hairColor);
+  else if (outfit === 'hat') drawHat(ctx, cx, cy - r * 0.85, r, hairColor);
+
+  ctx.restore();
+}
+
+function drawBow(ctx, cx, cy, r, color) {
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.strokeStyle = OUTLINE;
+  ctx.lineWidth = Math.max(2, r * 0.1);
+  // Two triangle "wings" + small center knot
+  const w = r * 0.55;
+  const h = r * 0.35;
+  // left wing
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(cx - w, cy - h * 0.6);
+  ctx.lineTo(cx - w, cy + h * 0.6);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  // right wing
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(cx + w, cy - h * 0.6);
+  ctx.lineTo(cx + w, cy + h * 0.6);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  // center knot
+  ctx.fillStyle = OUTLINE;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, r * 0.13, r * 0.18, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawHat(ctx, cx, topCY, r, color) {
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.strokeStyle = OUTLINE;
+  ctx.lineWidth = Math.max(2, r * 0.12);
+  // Brim
+  const brimY = topCY + r * 0.45;
+  const brimW = r * 1.4;
+  ctx.beginPath();
+  ctx.ellipse(cx, brimY, brimW / 2, r * 0.12, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  // Crown
+  const crownH = r * 0.7;
+  const crownW = r * 0.85;
+  ctx.beginPath();
+  ctx.moveTo(cx - crownW / 2, brimY);
+  ctx.lineTo(cx - crownW / 2, brimY - crownH);
+  ctx.lineTo(cx + crownW / 2, brimY - crownH);
+  ctx.lineTo(cx + crownW / 2, brimY);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  // Hat band (darker)
+  ctx.fillStyle = OUTLINE;
+  ctx.fillRect(cx - crownW / 2, brimY - r * 0.1, crownW, r * 0.08);
   ctx.restore();
 }
 
@@ -371,7 +459,7 @@ function drawEye(ctx, x, y, rOuter, rInner, facing) {
 }
 
 // Small helper used by the color-picker preview and loader.
-export function drawPreview(canvas, color) {
+export function drawPreview(canvas, color, outfit = 'plain') {
   const ctx = canvas.getContext('2d');
   const dpr = window.devicePixelRatio || 1;
   const w = canvas.clientWidth || 120;
@@ -381,6 +469,7 @@ export function drawPreview(canvas, color) {
   ctx.clearRect(0, 0, w, h);
   drawStickman(ctx, {
     x: w / 2, groundY: h - 10, h: h - 20, facing: 1,
-    color, poseT: performance.now() / 1000, state: 'idle',
+    color, outfit, poseT: performance.now() / 1000, state: 'idle',
+    stateAge: 0,
   });
 }

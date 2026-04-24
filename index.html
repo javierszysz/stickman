@@ -43,22 +43,41 @@
     }
     .big-btn:active { transform: translateY(4px); box-shadow: 0 4px 0 #222; }
 
-    .color-row { display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; }
+    .color-row { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; max-width: 720px; }
     .color-btn {
-      width: 160px; height: 200px;
-      border-radius: 24px;
-      border: 6px solid #222;
+      width: 110px; height: 140px;
+      border-radius: 18px;
+      border: 5px solid #222;
       background: #fff;
       display: flex; align-items: center; justify-content: center;
       cursor: pointer;
-      box-shadow: 0 8px 0 #222;
+      box-shadow: 0 6px 0 #222;
+      padding: 0;
     }
-    .color-btn:active { transform: translateY(4px); box-shadow: 0 4px 0 #222; }
+    .color-btn:active { transform: translateY(3px); box-shadow: 0 3px 0 #222; }
+    .color-btn.selected { outline: 4px solid #ffd54a; outline-offset: 4px; }
     .color-btn.pink { background: #ffc0e0; }
     .color-btn.blue { background: #a8d8ff; }
     .color-btn.green { background: #b8f0b8; }
     .color-btn.yellow { background: #ffe88a; }
-    .color-btn canvas { width: 120px; height: 160px; }
+    .color-btn.purple { background: #dcb0ff; }
+    .color-btn.orange { background: #ffc89a; }
+    .color-btn.teal { background: #a8efe0; }
+    .color-btn.red { background: #ffb0b0; }
+    .color-btn canvas { width: 90px; height: 120px; }
+    .picker-label { font-size: 18px; color: #222; opacity: 0.85; margin-top: 8px; }
+    .close-btn {
+      position: absolute; top: 16px; right: 16px;
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      border: 4px solid #222;
+      background: #ffd54a;
+      font-size: 30px; font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 4px 0 #222;
+    }
+    .close-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #222; }
 
     .title {
       font-size: 56px; font-weight: 900; color: #222;
@@ -86,8 +105,8 @@
       50% { transform: rotate(-90deg); }
     }
 
-    .gear {
-      position: fixed; top: 12px; right: 12px; z-index: 5;
+    .gear, .mute {
+      position: fixed; top: 12px; z-index: 5;
       width: 56px; height: 56px;
       border-radius: 50%;
       border: 4px solid #222;
@@ -95,9 +114,28 @@
       font-size: 28px;
       display: flex; align-items: center; justify-content: center;
       cursor: pointer;
-      opacity: 0.7;
+      opacity: 0.75;
+      user-select: none;
     }
-    .gear.hidden { display: none; }
+    .gear { right: 12px; }
+    .mute { right: 80px; }
+    .gear.hidden, .mute.hidden { display: none; }
+
+    .flower-counter {
+      position: fixed; top: 12px; left: 50%;
+      transform: translateX(-50%);
+      z-index: 5;
+      background: rgba(255, 255, 255, 0.85);
+      border: 3px solid #2a1b14;
+      border-radius: 999px;
+      padding: 6px 18px;
+      font-size: 22px; font-weight: 800; color: #222;
+      box-shadow: 0 3px 0 #2a1b14;
+      display: flex; align-items: center; gap: 8px;
+      transition: transform 0.18s ease-out;
+    }
+    .flower-counter.hidden { display: none; }
+    .flower-counter.bump { transform: translateX(-50%) scale(1.25); }
 
     .status {
       position: fixed; top: 12px; left: 12px; z-index: 5;
@@ -118,8 +156,11 @@
   </div>
 
   <div id="screen-color" class="screen hidden">
-    <div class="sub">Pick your stickman</div>
+    <button id="picker-close" class="close-btn hidden" title="Close">&#10005;</button>
+    <div class="sub">Pick a color</div>
     <div class="color-row" id="color-row"></div>
+    <div class="picker-label">Outfit</div>
+    <div class="color-row" id="outfit-row"></div>
   </div>
 
   <div id="screen-waiting" class="screen hidden">
@@ -127,7 +168,9 @@
     <div class="sub">Looking for a friend...</div>
   </div>
 
-  <div id="gear" class="gear hidden" title="Calibrate">&#9881;</div>
+  <div id="gear" class="gear hidden" title="Calibrate (long-press for color picker)">&#9881;</div>
+  <div id="mute" class="mute hidden" title="Mute / unmute">&#128266;</div>
+  <div id="flower-counter" class="flower-counter hidden">&#127804; <span id="flower-count">0</span></div>
   <div id="status" class="status hidden"></div>
 
   <div id="rotate-overlay" class="rotate-overlay">

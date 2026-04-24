@@ -2,6 +2,10 @@
 
 let ctx = null;
 let unlocked = false;
+let muted = false;
+
+export function setMuted(m) { muted = !!m; }
+export function isMuted() { return muted; }
 
 export function unlockAudio() {
   if (unlocked) return;
@@ -83,11 +87,19 @@ const SOUNDS = {
   join: () => {
     tone({ freq: 600, slideTo: 1000, dur: 0.18, type: 'triangle', vol: 0.25 });
   },
+  chime: () => {
+    tone({ freq: 1200, dur: 0.1, type: 'sine', vol: 0.2 });
+    setTimeout(() => tone({ freq: 1800, dur: 0.18, type: 'sine', vol: 0.18 }), 50);
+  },
+  bigchime: () => {
+    [1000, 1400, 1900, 2400].forEach((f, i) =>
+      setTimeout(() => tone({ freq: f, dur: 0.16, type: 'sine', vol: 0.22 }), i * 60));
+  },
 };
 
 const lastPlayed = {};
 export function playSound(name, minGapMs = 150) {
-  if (!unlocked) return;
+  if (!unlocked || muted) return;
   const t = performance.now();
   if (lastPlayed[name] && t - lastPlayed[name] < minGapMs) return;
   lastPlayed[name] = t;
