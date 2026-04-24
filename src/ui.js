@@ -31,14 +31,27 @@ export function initUI({ onPlay, onPickColor, onPickOutfit, onCalibrate, onClose
     renderMute(!!m);
   });
 
-  // Rotate overlay toggle
-  const check = () => {
+  // Rotate overlay: show briefly when entering portrait, then fade so the
+  // falling stickman is visible underneath. Re-show on each new portrait flip.
+  let lastPortrait = null;
+  let fadeTimer = null;
+  const checkOrientation = () => {
     const portrait = window.innerHeight > window.innerWidth;
-    $('#rotate-overlay').classList.toggle('visible', portrait);
+    if (portrait === lastPortrait) return;
+    lastPortrait = portrait;
+    const overlay = $('#rotate-overlay');
+    if (portrait) {
+      overlay.classList.add('visible');
+      if (fadeTimer) clearTimeout(fadeTimer);
+      fadeTimer = setTimeout(() => overlay.classList.remove('visible'), 2500);
+    } else {
+      if (fadeTimer) { clearTimeout(fadeTimer); fadeTimer = null; }
+      overlay.classList.remove('visible');
+    }
   };
-  window.addEventListener('resize', check);
-  window.addEventListener('orientationchange', check);
-  check();
+  window.addEventListener('resize', checkOrientation);
+  window.addEventListener('orientationchange', checkOrientation);
+  checkOrientation();
 
   // Re-animate loader stickman
   const loader = $('#loader-canvas');

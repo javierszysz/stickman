@@ -188,6 +188,32 @@ function frame(ts) {
     }
   }
 
+  // --- Gravity mode (portrait) ---
+  const portrait = window.innerHeight > window.innerWidth;
+  const wasGravity = world.gravityMode;
+  world.gravityMode = portrait;
+  if (portrait) {
+    const G = 1800; // px/s^2
+    const screenH = window.innerHeight;
+    const stickHApprox = Math.min(screenH * 0.4, 320);
+    for (const s of Object.values(world.stickmen)) {
+      if (s.phone !== world.phoneId) continue;
+      s.vy = (s.vy || 0) + G * dt;
+      s.y = (s.y || 0) + s.vy * dt;
+      // Fell off the bottom -> respawn at top, slight initial downward velocity
+      if (s.y > screenH * 0.9) {
+        s.y = -screenH - stickHApprox;
+        s.vy = 80;
+      }
+    }
+  } else if (wasGravity) {
+    // Just flipped back to landscape -> snap to ground
+    for (const s of Object.values(world.stickmen)) {
+      s.y = 0;
+      s.vy = 0;
+    }
+  }
+
   // --- Flowers ---
   const tNow = performance.now();
   if (world.phoneId === 'A') {
@@ -237,20 +263,25 @@ function onFlowerPickedVisuals(f) {
 function render() {
   const w = window.innerWidth;
   const h = window.innerHeight;
+  const portrait = world.gravityMode;
 
-  drawBackground(w, h);
+  drawBackground(w, h, portrait);
 
   const ground = Math.min(h - 40, h * 0.88);
-  const stickH = Math.min(h * 0.62, Math.max(220, h * 0.55));
+  const stickH = portrait
+    ? Math.min(w * 0.5, 280)
+    : Math.min(h * 0.62, Math.max(220, h * 0.55));
 
-  // Both edges are portals whenever peer is connected
-  if (world.peerConnected) {
+  // Both edges are portals whenever peer is connected (only in landscape)
+  if (world.peerConnected && !portrait) {
     drawEdgeGlow(w, h, 'left');
     drawEdgeGlow(w, h, 'right');
   }
 
-  // Flowers (drawn after edge glow, before stickmen so stickmen appear on top)
-  drawFlowers(ctx, flowerStore, world.phoneId, w, ground, poseT);
+  // Flowers (only in landscape — they live on the ground)
+  if (!portrait) {
+    drawFlowers(ctx, flowerStore, world.phoneId, w, ground, poseT);
+  }
 
   renderParticles(ctx);
 
@@ -261,15 +292,16 @@ function render() {
     .filter(([, s]) => s.phone === me)
     .sort(([ka], [kb]) => (ka === me ? 1 : 0) - (kb === me ? 1 : 0));
   for (const [, s] of here) {
+    const yOffset = s.y || 0;
     drawStickman(ctx, {
       x: s.x * w,
-      groundY: ground,
+      groundY: ground + yOffset,
       h: stickH,
       facing: s.facing,
       color: s.color,
       outfit: s.outfit,
       poseT,
-      state: s.state,
+      state: portrait ? 'falling' : s.state,
       stateAge: (performance.now() - (s.stateEnteredAt || 0)) / 1000,
     });
   }
@@ -340,7 +372,7 @@ function makeFlowers(w, ground, h) {
   flowersForWidth = w;
 }
 
-function drawBackground(w, h) {
+function drawBackground(w, h, portrait = false) {
   // sky gradient
   const sky = ctx.createLinearGradient(0, 0, 0, h);
   sky.addColorStop(0, '#7ec8f0');
@@ -387,6 +419,9 @@ function drawBackground(w, h) {
   drawCloud(ctx, ((w * 0.55 + drift * 0.7) % (w + 300)) - 150, h * 0.1, 45);
   drawCloud(ctx, ((w * 0.8 + drift * 0.9) % (w + 300)) - 150, h * 0.25, 70);
 
+  // No ground in portrait — pure sky for the falling mode
+  if (portrait) return;
+
   // ground
   const ground = Math.min(h - 40, h * 0.88);
   const groundGrad = ctx.createLinearGradient(0, ground, 0, h);
@@ -406,7 +441,7 @@ function drawBackground(w, h) {
   }
   ctx.stroke();
 
-  // flowers (regenerated on resize)
+  // decorative flowers (regenerated on resize)
   if (flowersForWidth !== w) makeFlowers(w, ground, h);
   for (const f of FLOWERS) drawFlower(ctx, f);
 }
