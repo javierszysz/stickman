@@ -120,6 +120,15 @@ export function drawStickman(ctx, s) {
       backLeg  = { swing: -0.08, bend: tuck * 0.7 };
       break;
     }
+    case 'falling': {
+      // Arms flailing up, legs splayed — "weeeee!"
+      const wob = Math.sin(t * 14) * 0.18;
+      frontArm = { swing: Math.PI * 0.85 + wob, bend: -0.2 };
+      backArm  = { swing: Math.PI * 1.15 - wob, bend: -0.2 };
+      frontLeg = { swing:  0.45 + wob * 0.5, bend: 0.15 };
+      backLeg  = { swing: -0.45 - wob * 0.5, bend: 0.15 };
+      break;
+    }
     case 'dancing': {
       const d = dancePhase;
       frontArm = { swing: Math.PI * 0.88 + d * 0.22, bend: -0.08 };
@@ -347,7 +356,7 @@ function drawHead(ctx, cx, cy, r, hairColor, facing, state, t, outfit, stateAge)
   ctx.lineWidth = Math.max(2, r * 0.12);
   const mouthY = cy + r * 0.38;
   const mouthW = r * 0.5;
-  const isOpen = state === 'dancing' || state === 'waving' || state === 'high-five' || state === 'celebrating';
+  const isOpen = state === 'dancing' || state === 'waving' || state === 'high-five' || state === 'celebrating' || state === 'falling';
   if (yawning) {
     // Big oval mouth for yawn
     ctx.beginPath();
