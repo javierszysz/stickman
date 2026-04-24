@@ -1,65 +1,89 @@
-import { initUI, showScreen, showStatus, hideStatus, lockLandscape } from './ui.js';
-import { unlockAudio } from './audio.js';
+import {
+  initUI, showScreen, showStatus, hideStatus, lockLandscape,
+  setSelectedAppearance,
+} from './ui.js';
+import { unlockAudio, setMuted, isMuted } from './audio.js';
 import { initInput, recalibrate, sensorsOk } from './input.js';
 import { connect, on as onPeer } from './peer.js';
 import { createWorld, setPhoneIdentity, getLocalStickman } from './world.js';
 import { startGame } from './game.js';
-import { DEBUG, MOCK, FULL_ROOM } from './config.js';
+import { DEBUG, MOCK, FULL_ROOM, COLOR_KEYS, OUTFIT_KEYS } from './config.js';
 
 const world = createWorld();
 let started = false;
+
+const STORE_COLOR  = 'stickman.color.v2';
+const STORE_OUTFIT = 'stickman.outfit.v1';
+const STORE_MUTED  = 'stickman.muted.v1';
+
+// Apply persisted mute state on boot
+setMuted(localStorage.getItem(STORE_MUTED) === '1');
 
 async function onPlay() {
   unlockAudio();
   await initInput();
   await lockLandscape();
 
-  const saved = localStorage.getItem('stickman.color.v2');
-  if (saved && ['pink', 'blue', 'green', 'yellow'].includes(saved)) {
-    onPickColor(saved);
+  const savedColor  = localStorage.getItem(STORE_COLOR);
+  const savedOutfit = localStorage.getItem(STORE_OUTFIT) || 'plain';
+  if (savedColor && COLOR_KEYS.includes(savedColor)) {
+    onPickOutfit(savedOutfit);
+    onPickColor(savedColor);
   } else {
     showScreen('color');
   }
 }
 
 function onPickColor(color) {
-  // Apply color to my stickman regardless of phoneId — we'll know A vs B on peer open.
-  // Default to 'A' for solo mode so getLocalStickman works.
   if (!world.phoneId) setPhoneIdentity(world, 'host');
   getLocalStickman(world).color = color;
-  localStorage.setItem('stickman.color.v2', color);
-  showScreen('waiting');
+  localStorage.setItem(STORE_COLOR, color);
+  setSelectedAppearance(color, getLocalStickman(world).outfit || 'plain');
 
   if (!started) {
     started = true;
     startGame(world);
     connect();
-  }
 
-  onPeer('open', o => {
-    setPhoneIdentity(world, o.role);
-    // Re-apply color after identity is set (A vs B may have swapped)
-    getLocalStickman(world).color = color;
-  });
+    onPeer('open', o => {
+      setPhoneIdentity(world, o.role);
+      getLocalStickman(world).color = color;
+      const outfit = localStorage.getItem(STORE_OUTFIT) || 'plain';
+      getLocalStickman(world).outfit = outfit;
+    });
 
-  onPeer('peer', p => {
-    if (p.connected) {
+    onPeer('peer', p => {
+      if (p.connected) {
+        showScreen(null);
+        showStatus(`connected · walk off either edge to visit` + (DEBUG ? ' · debug' : '') + (MOCK ? ' · mock' : ''));
+        setTimeout(hideStatus, 3500);
+      } else {
+        showStatus('friend disconnected — waiting...');
+      }
+    });
+
+    setTimeout(() => {
       showScreen(null);
-      showStatus(`connected · walk off either edge to visit` + (DEBUG ? ' · debug' : '') + (MOCK ? ' · mock' : ''));
-      setTimeout(hideStatus, 3500);
-    } else {
-      showStatus('friend disconnected — waiting...');
-    }
-  });
+      showStatus(sensorsOk()
+        ? `room: ${FULL_ROOM} · tap sides to walk`
+        : 'tap left/right sides to walk');
+      setTimeout(hideStatus, 4000);
+    }, 1500);
+  }
+  // Mid-game color change keeps the picker open so the user can also
+  // change outfit. Close via the X button.
+}
 
-  // Show play screen even before peer connects (solo mode works too)
-  setTimeout(() => {
-    showScreen(null);
-    showStatus(sensorsOk()
-      ? `room: ${FULL_ROOM} · tap sides to walk`
-      : 'tap left/right sides to walk');
-    setTimeout(hideStatus, 4000);
-  }, 1500);
+function onPickOutfit(outfit) {
+  if (!OUTFIT_KEYS.includes(outfit)) outfit = 'plain';
+  if (!world.phoneId) setPhoneIdentity(world, 'host');
+  getLocalStickman(world).outfit = outfit;
+  localStorage.setItem(STORE_OUTFIT, outfit);
+  setSelectedAppearance(getLocalStickman(world).color, outfit);
+}
+
+function onClosePicker() {
+  showScreen(null);
 }
 
 function onCalibrate() {
@@ -69,7 +93,22 @@ function onCalibrate() {
   setTimeout(hideStatus, 1500);
 }
 
-initUI({ onPlay, onPickColor, onCalibrate });
+function onToggleMute() {
+  const next = !isMuted();
+  setMuted(next);
+  localStorage.setItem(STORE_MUTED, next ? '1' : '0');
+  return next;
+}
+
+initUI({
+  onPlay,
+  onPickColor,
+  onPickOutfit,
+  onCalibrate,
+  onClosePicker,
+  onToggleMute,
+  isMuted: isMuted(),
+});
 
 // Auto-start in debug+mock to speed iteration
 if (DEBUG && MOCK) {

@@ -6,8 +6,15 @@ import {
 } from './world.js';
 import { createFSM } from './fsm.js';
 import { send, on as onPeer } from './peer.js';
-import { NET, DEBUG } from './config.js';
+import { NET, DEBUG, FLOWERS as FCFG } from './config.js';
 import { emitSparkle, emitFirework, updateParticles, renderParticles } from './particles.js';
+import {
+  createFlowerStore, tickHostFlowers, sweepPicked,
+  detectLocalPicks, applyPick, buildSnapshot, applySnapshot,
+  drawFlowers, flowerScreenPos,
+} from './flowers.js';
+import { playSound } from './audio.js';
+import { setFlowerCount } from './ui.js';
 
 let canvas, ctx;
 let world, fsm;
@@ -16,6 +23,9 @@ let poseT = 0;
 let pendingShake = null;
 let pendingJump = false;
 let running = false;
+let flowerStore = createFlowerStore();
+let lastFlowerBroadcastAt = 0;
+let lastFlowerCountShown = 0;
 const prevStates = { A: 'idle', B: 'idle' };
 const prevPhones = { A: 'A', B: 'B' };
 
@@ -34,7 +44,24 @@ export function startGame(worldRef) {
   onPeer('data', msg => {
     if (!msg) return;
     if (msg.event === 'hello') {
-      if (msg.color && msg.owner) world.stickmen[msg.owner].color = msg.color;
+      if (msg.owner) {
+        if (msg.color)  world.stickmen[msg.owner].color  = msg.color;
+        if (msg.outfit) world.stickmen[msg.owner].outfit = msg.outfit;
+      }
+      return;
+    }
+    if (msg.event === 'flowers') {
+      // Snapshot from host. Apply if I'm the guest.
+      if (world.phoneId !== 'A') {
+        applySnapshot(flowerStore, msg);
+      }
+      return;
+    }
+    if (msg.event === 'pick') {
+      const f = applyPick(flowerStore, msg, world.phoneId === 'A');
+      if (f) onFlowerPickedVisuals(f);
+      // If I'm host, the pick increments my counter; broadcast a fresh snapshot soon
+      if (world.phoneId === 'A') lastFlowerBroadcastAt = 0;
       return;
     }
     // Full state packet from peer
@@ -47,6 +74,7 @@ export function startGame(worldRef) {
         s.stateEnteredAt = performance.now();
       }
       if (msg.color) s.color = msg.color;
+      if (msg.outfit) s.outfit = msg.outfit;
       if (msg.phone) s.phone = msg.phone;
     }
   });
@@ -55,7 +83,11 @@ export function startGame(worldRef) {
     world.peerConnected = !!p.connected;
     if (p.connected) {
       const me = getLocalStickman(world);
-      send({ event: 'hello', owner: world.phoneId, color: me.color });
+      send({ event: 'hello', owner: world.phoneId, color: me.color, outfit: me.outfit });
+      // Host: send a fresh flower snapshot so the new guest catches up
+      if (world.phoneId === 'A') {
+        send(buildSnapshot(flowerStore));
+      }
     }
   });
 
@@ -69,6 +101,7 @@ export function startGame(worldRef) {
       facing: me.facing,
       state: me.state,
       color: me.color,
+      outfit: me.outfit,
       phone: me.phone,
     });
   }, 1000 / NET.sendHz);
@@ -155,10 +188,50 @@ function frame(ts) {
     }
   }
 
+  // --- Flowers ---
+  const tNow = performance.now();
+  if (world.phoneId === 'A') {
+    const spawned = tickHostFlowers(flowerStore, world, tNow);
+    const swept = sweepPicked(flowerStore, tNow);
+    if (spawned || swept || tNow - lastFlowerBroadcastAt > FCFG.hostBroadcastSec * 1000) {
+      lastFlowerBroadcastAt = tNow;
+      if (world.peerConnected) send(buildSnapshot(flowerStore));
+    }
+  } else {
+    sweepPicked(flowerStore, tNow);
+  }
+  // Local pick detection (both peers run it)
+  const picks = detectLocalPicks(flowerStore, world, world.phoneId);
+  for (const ev of picks) {
+    const f = applyPick(flowerStore, ev, world.phoneId === 'A');
+    if (f) onFlowerPickedVisuals(f);
+    if (world.peerConnected) send(ev);
+    if (world.phoneId === 'A') lastFlowerBroadcastAt = 0;
+  }
+  if (flowerStore.count !== lastFlowerCountShown) {
+    lastFlowerCountShown = flowerStore.count;
+    setFlowerCount(flowerStore.count);
+  }
+
   updateParticles(dt);
 
   render();
   requestAnimationFrame(frame);
+}
+
+function onFlowerPickedVisuals(f) {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const ground = Math.min(h - 40, h * 0.88);
+  const { x, y } = flowerScreenPos(f, w, ground, poseT);
+  if (f.big) {
+    emitSparkle(x, y, 24, { upward: true });
+    emitFirework(x, y - 60, 28);
+    playSound('bigchime');
+  } else {
+    emitSparkle(x, y, 12, { upward: true });
+    playSound('chime');
+  }
 }
 
 function render() {
@@ -176,6 +249,9 @@ function render() {
     drawEdgeGlow(w, h, 'right');
   }
 
+  // Flowers (drawn after edge glow, before stickmen so stickmen appear on top)
+  drawFlowers(ctx, flowerStore, world.phoneId, w, ground, poseT);
+
   renderParticles(ctx);
 
   // Render only stickmen physically on THIS phone. Peer's stickman first
@@ -191,6 +267,7 @@ function render() {
       h: stickH,
       facing: s.facing,
       color: s.color,
+      outfit: s.outfit,
       poseT,
       state: s.state,
       stateAge: (performance.now() - (s.stateEnteredAt || 0)) / 1000,
