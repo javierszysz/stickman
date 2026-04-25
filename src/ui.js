@@ -17,10 +17,8 @@ export function initUI({ onPlay, onPickColor, onPickOutfit, onCalibrate, onClose
 
   $('#picker-close').addEventListener('click', () => onClosePicker && onClosePicker());
 
-  // Gear: short tap = calibrate. Long-press (>500ms) = open picker.
-  attachLongPress($('#gear'),
-    () => onCalibrate(),
-    () => openPicker());
+  // Gear: tap to open the color/outfit picker.
+  $('#gear').addEventListener('click', () => openPicker());
 
   // Mute toggle
   const muteEl = $('#mute');
