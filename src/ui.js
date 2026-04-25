@@ -110,6 +110,13 @@ export function setSelectedAppearance(color, outfit) {
   markSelected('#outfit-row', outfit, 'outfit');
   refreshColorPreviews();
   refreshOutfitPreviews();
+  refreshGearPreview();
+}
+
+function refreshGearPreview() {
+  const canv = $('#gear-canvas');
+  if (!canv) return;
+  drawPreview(canv, currentColor, currentOutfit);
 }
 
 function openPicker() {
@@ -128,6 +135,8 @@ export function showScreen(name) {
   $('#flower-counter').classList.toggle('hidden', !playing);
   // Hide close button unless we're in the mid-game picker
   if (name !== 'color') $('#picker-close').classList.add('hidden');
+  // The gear canvas reads its own clientWidth — must be visible to size correctly
+  if (playing) refreshGearPreview();
 }
 
 export function showStatus(text) {
