@@ -272,8 +272,9 @@ function render() {
     ? Math.min(w * 0.5, 280)
     : Math.min(h * 0.62, Math.max(220, h * 0.55));
 
-  // Both edges are portals whenever peer is connected (only in landscape)
-  if (world.peerConnected && !portrait) {
+  // Yellow arrows on both edges — control hints for "tap this side to walk".
+  // Hidden in portrait (gravity-fall mode) where there's no walking.
+  if (!portrait) {
     drawEdgeGlow(w, h, 'left');
     drawEdgeGlow(w, h, 'right');
   }

@@ -182,7 +182,7 @@ function findTouch(list, id) {
 
 function isUIElement(el) {
   if (!el || !el.closest) return false;
-  return !!el.closest('#gear, .big-btn, .color-btn, #status, .screen, .rotate-overlay');
+  return !!el.closest('#gear, #mute, #picker-close, .big-btn, .color-btn, #status, .screen');
 }
 
 // Mouse fallback for desktop testing

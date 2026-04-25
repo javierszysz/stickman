@@ -375,9 +375,14 @@ function drawHead(ctx, cx, cy, r, hairColor, facing, state, t, outfit, stateAge)
     ctx.stroke();
   }
 
-  // Outfit: hat or bow on top of head
-  if (outfit === 'bow') drawBow(ctx, cx, cy - r * 0.95, r, hairColor);
-  else if (outfit === 'hat') drawHat(ctx, cx, cy - r * 0.85, r, hairColor);
+  // Outfit on top of head
+  switch (outfit) {
+    case 'bow':    drawBow   (ctx, cx, cy - r * 0.92, r, hairColor); break;
+    case 'crown':  drawCrown (ctx, cx, cy - r * 0.85, r);            break;
+    case 'hat':    drawTopHat(ctx, cx, cy - r * 0.85, r, hairColor); break;
+    case 'beanie': drawBeanie(ctx, cx, cy - r * 0.95, r, hairColor); break;
+    case 'flower': drawFlowerHat(ctx, cx, cy - r * 0.7, r, hairColor, facing); break;
+  }
 
   ctx.restore();
 }
@@ -386,60 +391,149 @@ function drawBow(ctx, cx, cy, r, color) {
   ctx.save();
   ctx.fillStyle = color;
   ctx.strokeStyle = OUTLINE;
-  ctx.lineWidth = Math.max(2, r * 0.1);
-  // Two triangle "wings" + small center knot
-  const w = r * 0.55;
-  const h = r * 0.35;
-  // left wing
+  ctx.lineWidth = Math.max(2, r * 0.09);
+  // Wings — rounded ovals tilted inward
   ctx.beginPath();
-  ctx.moveTo(cx, cy);
-  ctx.lineTo(cx - w, cy - h * 0.6);
-  ctx.lineTo(cx - w, cy + h * 0.6);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-  // right wing
+  ctx.ellipse(cx - r * 0.32, cy, r * 0.32, r * 0.22, -0.3, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
   ctx.beginPath();
-  ctx.moveTo(cx, cy);
-  ctx.lineTo(cx + w, cy - h * 0.6);
-  ctx.lineTo(cx + w, cy + h * 0.6);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-  // center knot
-  ctx.fillStyle = OUTLINE;
+  ctx.ellipse(cx + r * 0.32, cy, r * 0.32, r * 0.22, 0.3, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
+  // Center knot — circle with highlight
   ctx.beginPath();
-  ctx.ellipse(cx, cy, r * 0.13, r * 0.18, 0, 0, Math.PI * 2);
+  ctx.arc(cx, cy, r * 0.18, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.beginPath();
+  ctx.arc(cx - r * 0.06, cy - r * 0.06, r * 0.06, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
 
-function drawHat(ctx, cx, topCY, r, color) {
+function drawTopHat(ctx, cx, topCY, r, color) {
   ctx.save();
   ctx.fillStyle = color;
   ctx.strokeStyle = OUTLINE;
-  ctx.lineWidth = Math.max(2, r * 0.12);
-  // Brim
+  ctx.lineWidth = Math.max(2, r * 0.1);
   const brimY = topCY + r * 0.45;
-  const brimW = r * 1.4;
+  // Brim
   ctx.beginPath();
-  ctx.ellipse(cx, brimY, brimW / 2, r * 0.12, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-  // Crown
-  const crownH = r * 0.7;
-  const crownW = r * 0.85;
+  ctx.ellipse(cx, brimY, r * 0.78, r * 0.13, 0, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
+  // Crown — slightly tapered
+  const crownH = r * 0.78;
+  const topW = r * 0.62;
+  const botW = r * 0.78;
   ctx.beginPath();
-  ctx.moveTo(cx - crownW / 2, brimY);
-  ctx.lineTo(cx - crownW / 2, brimY - crownH);
-  ctx.lineTo(cx + crownW / 2, brimY - crownH);
-  ctx.lineTo(cx + crownW / 2, brimY);
+  ctx.moveTo(cx - botW / 2, brimY);
+  ctx.lineTo(cx - topW / 2, brimY - crownH);
+  ctx.lineTo(cx + topW / 2, brimY - crownH);
+  ctx.lineTo(cx + botW / 2, brimY);
   ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  // Gold band
+  ctx.fillStyle = '#ffd94d';
+  ctx.strokeStyle = OUTLINE;
+  ctx.lineWidth = Math.max(1.5, r * 0.05);
+  ctx.beginPath();
+  ctx.rect(cx - botW / 2 + 1, brimY - r * 0.15, botW - 2, r * 0.1);
+  ctx.fill(); ctx.stroke();
+  ctx.restore();
+}
+
+function drawCrown(ctx, cx, topCY, r) {
+  ctx.save();
+  ctx.fillStyle = '#ffd54a'; // gold (always)
+  ctx.strokeStyle = '#a88800';
+  ctx.lineWidth = Math.max(2, r * 0.08);
+  const baseY = topCY + r * 0.4;
+  const w = r * 1.05;
+  const tipH = r * 0.5;
+  const points = 5;
+  ctx.beginPath();
+  ctx.moveTo(cx - w / 2, baseY);
+  for (let i = 0; i < points; i++) {
+    const tipX = cx - w / 2 + (w / points) * (i + 0.5);
+    const tipY = baseY - tipH;
+    const nextBase = cx - w / 2 + (w / points) * (i + 1);
+    ctx.lineTo(tipX, tipY);
+    ctx.lineTo(nextBase, baseY);
+  }
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  // Jewels at base
+  const jewelColors = ['#ff5c8a', '#7cc6ff', '#b8f0b8', '#ffd54a', '#c77dff'];
+  for (let i = 0; i < points; i++) {
+    const jx = cx - w / 2 + (w / points) * (i + 0.5);
+    ctx.fillStyle = jewelColors[i % jewelColors.length];
+    ctx.beginPath();
+    ctx.arc(jx, baseY - r * 0.08, r * 0.07, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawBeanie(ctx, cx, topCY, r, color) {
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.strokeStyle = OUTLINE;
+  ctx.lineWidth = Math.max(2, r * 0.1);
+  const cuffY = topCY + r * 0.55;
+  const dome = r * 0.85;
+  // Dome
+  ctx.beginPath();
+  ctx.arc(cx, cuffY, dome, Math.PI * 1.05, Math.PI * 1.95, false);
+  ctx.lineTo(cx + dome * 0.95, cuffY);
+  ctx.lineTo(cx - dome * 0.95, cuffY);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  // Cuff (lighter contrast)
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.rect(cx - dome * 0.95, cuffY - r * 0.18, dome * 1.9, r * 0.2);
+  ctx.fill(); ctx.stroke();
+  // Pom-pom on top
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(cx, cuffY - dome - r * 0.05, r * 0.2, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
+  // Pom inner texture
+  ctx.fillStyle = 'rgba(0,0,0,0.1)';
+  ctx.beginPath();
+  ctx.arc(cx + r * 0.05, cuffY - dome + r * 0.05, r * 0.06, 0, Math.PI * 2);
   ctx.fill();
+  ctx.restore();
+}
+
+function drawFlowerHat(ctx, cx, topCY, r, color, facing) {
+  ctx.save();
+  const fx = cx + r * 0.5 * facing;
+  const fy = topCY + r * 0.15;
+  ctx.fillStyle = color;
+  ctx.strokeStyle = OUTLINE;
+  ctx.lineWidth = Math.max(1.5, r * 0.07);
+  // Stem
+  ctx.beginPath();
+  ctx.moveTo(fx - r * 0.05 * facing, fy + r * 0.25);
+  ctx.lineTo(fx, fy);
+  ctx.lineWidth = Math.max(2, r * 0.07);
+  ctx.strokeStyle = '#2f7a2a';
   ctx.stroke();
-  // Hat band (darker)
-  ctx.fillStyle = OUTLINE;
-  ctx.fillRect(cx - crownW / 2, brimY - r * 0.1, crownW, r * 0.08);
+  // Petals
+  ctx.strokeStyle = OUTLINE;
+  ctx.lineWidth = Math.max(1.5, r * 0.07);
+  const petals = 5;
+  for (let i = 0; i < petals; i++) {
+    const a = (i / petals) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.arc(fx + Math.cos(a) * r * 0.18, fy + Math.sin(a) * r * 0.18, r * 0.15, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+  }
+  // Yellow center
+  ctx.fillStyle = '#ffd94d';
+  ctx.beginPath();
+  ctx.arc(fx, fy, r * 0.1, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
   ctx.restore();
 }
 
