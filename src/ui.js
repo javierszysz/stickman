@@ -7,7 +7,7 @@ let pickerCallbacks = null;
 let currentColor = 'pink';
 let currentOutfit = 'plain';
 
-export function initUI({ onPlay, onPickColor, onPickOutfit, onCalibrate, onClosePicker, onToggleMute, isMuted }) {
+export function initUI({ onPlay, onPickColor, onPickOutfit, onClosePicker, onToggleMute, isMuted }) {
   pickerCallbacks = { onPickColor, onPickOutfit, onClosePicker };
 
   $('#btn-play').addEventListener('click', () => onPlay());

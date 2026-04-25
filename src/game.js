@@ -26,6 +26,7 @@ let running = false;
 let flowerStore = createFlowerStore();
 let lastFlowerBroadcastAt = 0;
 let lastFlowerCountShown = 0;
+let lastPortraitFlag = null;
 const prevStates = { A: 'idle', B: 'idle' };
 const prevPhones = { A: 'A', B: 'B' };
 
@@ -188,31 +189,39 @@ function frame(ts) {
     }
   }
 
-  // --- Gravity mode (portrait) ---
+  // --- Orientation flip throws stickmen into the air ---
   const portrait = window.innerHeight > window.innerWidth;
-  const wasGravity = world.gravityMode;
-  world.gravityMode = portrait;
-  if (portrait) {
-    const G = 1800; // px/s^2
+  if (lastPortraitFlag !== null && portrait !== lastPortraitFlag) {
+    // Orientation changed — tumble!
     const screenH = window.innerHeight;
-    const stickHApprox = Math.min(screenH * 0.4, 320);
     for (const s of Object.values(world.stickmen)) {
       if (s.phone !== world.phoneId) continue;
-      s.vy = (s.vy || 0) + G * dt;
-      s.y = (s.y || 0) + s.vy * dt;
-      // Fell off the bottom -> respawn at top, slight initial downward velocity
-      if (s.y > screenH * 0.9) {
-        s.y = -screenH - stickHApprox;
-        s.vy = 80;
-      }
-    }
-  } else if (wasGravity) {
-    // Just flipped back to landscape -> snap to ground
-    for (const s of Object.values(world.stickmen)) {
-      s.y = 0;
-      s.vy = 0;
+      s.y = -screenH * 0.9;
+      s.vy = -120;  // small initial upward kick
     }
   }
+  lastPortraitFlag = portrait;
+
+  // Apply gravity while any local stickman is airborne (or moving). Land when y >= 0.
+  const G = 1800;
+  for (const s of Object.values(world.stickmen)) {
+    if (s.phone !== world.phoneId) continue;
+    if ((s.y || 0) < 0 || (s.vy || 0) !== 0) {
+      s.vy = (s.vy || 0) + G * dt;
+      s.y = (s.y || 0) + s.vy * dt;
+      if (s.y >= 0) {
+        const hardLanding = s.vy > 600;
+        s.y = 0;
+        s.vy = 0;
+        if (hardLanding) {
+          playSound('boing');
+          sparkleBurst(s, 14, { low: true });
+        }
+      }
+    }
+  }
+  // Track for orientation change detection on next frame
+  world.gravityMode = portrait;
 
   // --- Flowers ---
   const tNow = performance.now();
@@ -263,26 +272,19 @@ function onFlowerPickedVisuals(f) {
 function render() {
   const w = window.innerWidth;
   const h = window.innerHeight;
-  const portrait = world.gravityMode;
+  const portrait = h > w;
 
-  drawBackground(w, h, portrait);
+  drawBackground(w, h);
 
   const ground = Math.min(h - 40, h * 0.88);
   const stickH = portrait
-    ? Math.min(w * 0.5, 280)
+    ? Math.min(w * 0.6, 280)
     : Math.min(h * 0.62, Math.max(220, h * 0.55));
 
-  // Yellow arrows on both edges — control hints for "tap this side to walk".
-  // Hidden in portrait (gravity-fall mode) where there's no walking.
-  if (!portrait) {
-    drawEdgeGlow(w, h, 'left');
-    drawEdgeGlow(w, h, 'right');
-  }
+  drawEdgeGlow(w, h, 'left');
+  drawEdgeGlow(w, h, 'right');
 
-  // Flowers (only in landscape — they live on the ground)
-  if (!portrait) {
-    drawFlowers(ctx, flowerStore, world.phoneId, w, ground, poseT);
-  }
+  drawFlowers(ctx, flowerStore, world.phoneId, w, ground, poseT);
 
   renderParticles(ctx);
 
@@ -294,6 +296,7 @@ function render() {
     .sort(([ka], [kb]) => (ka === me ? 1 : 0) - (kb === me ? 1 : 0));
   for (const [, s] of here) {
     const yOffset = s.y || 0;
+    const airborne = yOffset < 0 || s.vy < -0.1;
     drawStickman(ctx, {
       x: s.x * w,
       groundY: ground + yOffset,
@@ -302,7 +305,7 @@ function render() {
       color: s.color,
       outfit: s.outfit,
       poseT,
-      state: portrait ? 'falling' : s.state,
+      state: airborne ? 'falling' : s.state,
       stateAge: (performance.now() - (s.stateEnteredAt || 0)) / 1000,
     });
   }
@@ -373,7 +376,7 @@ function makeFlowers(w, ground, h) {
   flowersForWidth = w;
 }
 
-function drawBackground(w, h, portrait = false) {
+function drawBackground(w, h) {
   // sky gradient
   const sky = ctx.createLinearGradient(0, 0, 0, h);
   sky.addColorStop(0, '#7ec8f0');
@@ -419,9 +422,6 @@ function drawBackground(w, h, portrait = false) {
   drawCloud(ctx, ((w * 0.15 + drift) % (w + 300)) - 150, h * 0.15, 60);
   drawCloud(ctx, ((w * 0.55 + drift * 0.7) % (w + 300)) - 150, h * 0.1, 45);
   drawCloud(ctx, ((w * 0.8 + drift * 0.9) % (w + 300)) - 150, h * 0.25, 70);
-
-  // No ground in portrait — pure sky for the falling mode
-  if (portrait) return;
 
   // ground
   const ground = Math.min(h - 40, h * 0.88);
