@@ -3,7 +3,7 @@ import {
   setSelectedAppearance,
 } from './ui.js';
 import { unlockAudio, setMuted, isMuted } from './audio.js';
-import { initInput, recalibrate, sensorsOk } from './input.js';
+import { initInput, sensorsOk } from './input.js';
 import { connect, on as onPeer } from './peer.js';
 import { createWorld, setPhoneIdentity, getLocalStickman } from './world.js';
 import { startGame } from './game.js';
@@ -86,13 +86,6 @@ function onClosePicker() {
   showScreen(null);
 }
 
-function onCalibrate() {
-  recalibrate();
-  showStatus('hold still — calibrating...');
-  setTimeout(() => showStatus('ready!'), 600);
-  setTimeout(hideStatus, 1500);
-}
-
 function onToggleMute() {
   const next = !isMuted();
   setMuted(next);
@@ -104,7 +97,6 @@ initUI({
   onPlay,
   onPickColor,
   onPickOutfit,
-  onCalibrate,
   onClosePicker,
   onToggleMute,
   isMuted: isMuted(),
