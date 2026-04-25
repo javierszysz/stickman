@@ -88,25 +88,6 @@
 
     .loader-stick { width: 160px; height: 200px; }
 
-    .rotate-overlay {
-      position: fixed; inset: 0; z-index: 20;
-      background: rgba(0,0,0,0.7);
-      display: flex;
-      color: #fff;
-      align-items: center; justify-content: center;
-      flex-direction: column; gap: 16px;
-      font-size: 28px; font-weight: 700;
-      text-align: center; padding: 24px;
-      opacity: 0; visibility: hidden;
-      pointer-events: none;
-      transition: opacity 0.5s ease-out, visibility 0.5s;
-    }
-    .rotate-overlay.visible { opacity: 1; visibility: visible; }
-    .rotate-icon { font-size: 96px; animation: rotateHint 1.6s infinite ease-in-out; }
-    @keyframes rotateHint {
-      0%, 100% { transform: rotate(0deg); }
-      50% { transform: rotate(-90deg); }
-    }
 
     .gear, .mute {
       position: fixed; top: 12px; z-index: 5;
@@ -175,12 +156,6 @@
   <div id="mute" class="mute hidden" title="Mute / unmute">&#128266;</div>
   <div id="flower-counter" class="flower-counter hidden">&#127804; <span id="flower-count">0</span></div>
   <div id="status" class="status hidden"></div>
-
-  <div id="rotate-overlay" class="rotate-overlay">
-    <div class="rotate-icon">&#128241;</div>
-    <div>Please rotate your device</div>
-    <div class="sub" style="color:#fff">Sideways works best!</div>
-  </div>
 
   <script src="./vendor/peerjs.min.js" integrity="sha384-nlUQ8ZqCbvStErob+biJNzSgltf6urV3VGqhfIfzhmg9RXmpeRm76ELw0pYnKlTR" crossorigin="anonymous"></script>
   <script type="module" src="./src/main.js"></script>

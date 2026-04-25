@@ -12,9 +12,12 @@ export const COLORS = {
 };
 
 export const OUTFITS = {
-  plain: { name: 'Plain' },
-  bow:   { name: 'Bow' },
-  hat:   { name: 'Hat' },
+  plain:  { name: 'Plain' },
+  bow:    { name: 'Bow' },
+  crown:  { name: 'Crown' },
+  hat:    { name: 'Top hat' },
+  beanie: { name: 'Beanie' },
+  flower: { name: 'Flower' },
 };
 
 export const COLOR_KEYS = Object.keys(COLORS);
