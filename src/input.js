@@ -64,16 +64,41 @@ export async function initInput() {
     window.addEventListener('keyup', onKeyUp);
   }
 
+  // Recalibrate after each orientation change — the 'neutral' angle is
+  // screen-relative, so a flip means we should resample the resting angle.
+  if (screen.orientation && screen.orientation.addEventListener) {
+    screen.orientation.addEventListener('change', () => beginCalibration());
+  } else {
+    window.addEventListener('orientationchange', () => beginCalibration());
+  }
+
   beginCalibration();
 }
 
 function onOrientation(e) {
-  if (e.gamma == null) return;
+  if (e.gamma == null && e.beta == null) return;
   state.sensorsAvailable = true;
-  state.gamma = e.gamma;
+  state.gamma = e.gamma || 0;
   state.beta = e.beta || 0;
   if (!state.calibrated) {
-    state.calibrateSamples.push(e.gamma);
+    state.calibrateSamples.push(currentScreenTilt());
+  }
+}
+
+// Map device beta/gamma to "tilt-right is positive" relative to the visible
+// screen, accounting for current orientation. screen.orientation.angle is
+// 0 (natural portrait), 90 (landscape CCW), -90/270 (landscape CW), 180.
+function currentScreenTilt() {
+  const angle = (screen.orientation && typeof screen.orientation.angle === 'number')
+    ? screen.orientation.angle
+    : (typeof window.orientation === 'number' ? window.orientation : 0);
+  switch (angle) {
+    case 90:           return -state.beta;
+    case -90:
+    case 270:          return state.beta;
+    case 180:          return -state.gamma;
+    case 0:
+    default:           return state.gamma;
   }
 }
 
@@ -261,7 +286,7 @@ export function getTilt() {
   if (state.touchTilt !== 0) return state.touchTilt;
   finishCalibrationIfReady();
   if (!state.sensorsAvailable) return 0;
-  const dev = state.gamma - state.neutral;
+  const dev = currentScreenTilt() - state.neutral;
   const sign = Math.sign(dev);
   const mag = Math.max(0, Math.abs(dev) - TILT_DEADZONE_DEG)
             / (TILT_FULL_DEG - TILT_DEADZONE_DEG);
